@@ -344,6 +344,30 @@
         <div style="margin-top:10px;">
           <label>Report preview</label>
           <div id="reportPreview">No report generated yet.</div>
+          
+      <!-- AI helper -->
+      <div class="section" style="margin-top:12px;">
+        <div class="section-title">Optional – AI assist (OpenAI)</div>
+        <div class="grid">
+          <div>
+            <label for="openaiKey">OpenAI API key (kept on this device)</label>
+            <input id="openaiKey" type="password"
+                   placeholder="sk-..." autocomplete="off" />
+            <div class="small-note">
+              This is stored only in your browser (localStorage). Do <b>not</b> commit it to GitHub.
+            </div>
+          </div>
+        </div>
+        <div class="btn-row" style="margin-top:8px;">
+          <button id="saveKeyBtn" type="button">Save key on this device</button>
+          <button id="clearKeyBtn" type="button">Forget key</button>
+          <button id="aiImproveBtn" class="primary" type="button">
+            AI: Improve fields
+          </button>
+        </div>
+        <div id="aiStatus" class="small-note"></div>
+      </div>
+
         </div>
       </div>
     </div>
@@ -855,6 +879,152 @@
                      "&body=" + body;
       window.location.href = mailto;
     }
+// --- OpenAI integration (browser-side, user provides key) ---
+
+const OPENAI_MODEL = "gpt-4.1-mini"; // change if you want
+const OPENAI_KEY_STORAGE = "avd_job_report_openai_key";
+
+function setAiStatus(msg, ok) {
+  const el = document.getElementById("aiStatus");
+  if (!el) return;
+  el.textContent = msg;
+  el.style.color = ok ? "" : "var(--danger)";
+}
+
+// Load key from localStorage into the box
+function loadOpenAIKey() {
+  const k = localStorage.getItem(OPENAI_KEY_STORAGE) || "";
+  const box = document.getElementById("openaiKey");
+  if (box) box.value = k;
+}
+
+// Save/remove key
+function saveOpenAIKey() {
+  const box = document.getElementById("openaiKey");
+  if (!box) return;
+  const val = box.value.trim();
+  if (!val) {
+    setAiStatus("No key entered.", false);
+    return;
+  }
+  localStorage.setItem(OPENAI_KEY_STORAGE, val);
+  setAiStatus("API key saved in this browser only.", true);
+}
+function clearOpenAIKey() {
+  localStorage.removeItem(OPENAI_KEY_STORAGE);
+  const box = document.getElementById("openaiKey");
+  if (box) box.value = "";
+  setAiStatus("API key cleared from this browser.", true);
+}
+
+// Call OpenAI Responses API to tidy/summarise fields
+async function runAiImprove() {
+  const apiKey = localStorage.getItem(OPENAI_KEY_STORAGE);
+  if (!apiKey) {
+    setAiStatus("No API key set. Paste it and click 'Save key' first.", false);
+    return;
+  }
+
+  setAiStatus("Talking to OpenAI…", true);
+
+  // Grab current field contents
+  const payload = {
+    jobDescription: document.getElementById("jobDescription").value || "",
+    techCheck:      document.getElementById("techCheck").value || "",
+    findings:       document.getElementById("findings").value || "",
+    howLeft:        document.getElementById("howLeft").value || "",
+    advisories:     document.getElementById("advisories").value || ""
+  };
+
+  const systemPrompt = `
+You are helping an audio-visual company engineer write a clear internal job report.
+
+You will be given:
+- jobDescription: raw description from the calendar / notes
+- techCheck: rough notes from a TECH CHECK document
+- findings: bullet-style engineer findings
+- howLeft: short notes on how the job has been left / next steps
+- advisories: short notes on future recommendations / risks
+
+Return STRICT JSON ONLY in this format:
+{
+  "jobDescription": "cleaned paragraph summarising what the job is about",
+  "techCheckSummary": "tidy summary of tech check notes (or empty string)",
+  "findings": "tidy but still concise findings, in paragraph form",
+  "howLeft": "clear paragraph with next steps / current status",
+  "advisories": "paragraph combining advisories into clear sentences"
+}
+
+Do not include any explanation, just the JSON.
+Keep everything factual based only on the input text. Do not invent extra work or promises.
+  `.trim();
+
+  try {
+    const res = await fetch("https://api.openai.com/v1/responses", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + apiKey
+      },
+      body: JSON.stringify({
+        model: OPENAI_MODEL,
+        input: [
+          { role: "system", content: systemPrompt },
+          { role: "user",   content: JSON.stringify(payload) }
+        ]
+      })
+    });
+
+    if (!res.ok) {
+      const txt = await res.text().catch(() => "");
+      console.error("OpenAI error:", res.status, txt);
+      setAiStatus("OpenAI error " + res.status + " – check key & model.", false);
+      return;
+    }
+
+    const data = await res.json();
+    // Responses API: first output, first content chunk, text
+    const rawText =
+      data.output &&
+      data.output[0] &&
+      data.output[0].content &&
+      data.output[0].content[0] &&
+      data.output[0].content[0].text
+        ? data.output[0].content[0].text
+        : "";
+
+    let json;
+    try {
+      json = JSON.parse(rawText);
+    } catch (e) {
+      console.error("Failed to parse JSON from OpenAI:", rawText);
+      setAiStatus("AI replied in an unexpected format. Check console.", false);
+      return;
+    }
+
+    // Write improved text back into fields (only if provided)
+    if (json.jobDescription) {
+      document.getElementById("jobDescription").value = json.jobDescription;
+    }
+    if (json.techCheckSummary) {
+      document.getElementById("techCheck").value = json.techCheckSummary;
+    }
+    if (json.findings) {
+      document.getElementById("findings").value = json.findings;
+    }
+    if (json.howLeft) {
+      document.getElementById("howLeft").value = json.howLeft;
+    }
+    if (json.advisories) {
+      document.getElementById("advisories").value = json.advisories;
+    }
+
+    setAiStatus("AI updated the fields. Review before sending.", true);
+  } catch (err) {
+    console.error(err);
+    setAiStatus("Network or browser error calling OpenAI.", false);
+  }
+}
 
     // --- Init ---
     window.addEventListener("DOMContentLoaded", () => {
@@ -885,6 +1055,12 @@
       document.getElementById("viewBtn").addEventListener("click", viewReport);
       document.getElementById("copyBtn").addEventListener("click", copyReportText);
       document.getElementById("sendBtn").addEventListener("click", sendReportEmail);
+      
+      // OpenAI key + AI improve
+      loadOpenAIKey();
+      document.getElementById("saveKeyBtn").addEventListener("click", saveOpenAIKey);
+      document.getElementById("clearKeyBtn").addEventListener("click", clearOpenAIKey);
+      document.getElementById("aiImproveBtn").addEventListener("click", runAiImprove);
 
       // Initialize auth client when gsi script ready
       window.addEventListener("load", () => {
