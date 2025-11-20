@@ -201,7 +201,7 @@
         <div class="grid">
           <div>
             <label for="employee">Employee</label>
-            <input id="employee" placeholder="Derived from calendar ID if possible" />
+            <input id="employee" placeholder="Filled from calendar name (e.g. Frazer) if possible" />
           </div>
           <div>
             <label for="jobType">Job type</label>
@@ -294,18 +294,18 @@
           <div>
             <label for="findings">Findings</label>
             <textarea id="findings"
-              placeholder="Short, brief sentences describing what you found."></textarea>
+              placeholder="Short, brief sentences describing what you found. AI turns these into a clean paragraph in the report."></textarea>
           </div>
           <div>
             <label for="howLeft">How things have been left</label>
             <textarea id="howLeft"
-              placeholder="Short bullet-style notes. These get turned into a paragraph in the report."></textarea>
+              placeholder="Short bullet-style notes. AI turns these into a paragraph in the report."></textarea>
           </div>
         </div>
         <div style="margin-top:10px;">
           <label for="advisories">Advisories</label>
           <textarea id="advisories"
-            placeholder="More short notes (e.g. future improvements, risks). Also turned into proper sentences in the report."></textarea>
+            placeholder="Short notes (future improvements, risks). AI turns these into clear sentences/paragraphs."></textarea>
         </div>
       </div>
 
@@ -332,7 +332,7 @@
           <button id="sendBtn" type="button">Send (opens email)</button>
         </div>
         <div class="small-note">
-          “Send” opens your email client addressed to Neil, Mark & David with the report text.
+          “Send” opens your email client addressed to Neil, Mark &amp; David with the report text.
           Attach the Word doc + photos/videos manually.
         </div>
 
@@ -360,6 +360,7 @@
     let tokenClient = null;
     let currentEvents = [];
     let lastReportText = "";
+    let lastReportData = null;
 
     function setStatus(msg, ok) {
       const el = document.getElementById("authStatus");
@@ -419,6 +420,33 @@
       return "";
     }
 
+    async function setEmployeeFromCalendar(calId) {
+      const employeeInput = document.getElementById("employee");
+      if (employeeInput.value) return; // don't overwrite manual value
+      if (!accessToken) return;
+
+      try {
+        const url = "https://www.googleapis.com/calendar/v3/calendars/" + encodeURIComponent(calId);
+        const res = await fetch(url, {
+          headers: { "Authorization": "Bearer " + accessToken }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.summary && typeof data.summary === "string") {
+            const name = data.summary.trim();
+            if (name) {
+              employeeInput.value = name; // e.g. "Frazer"
+              return;
+            }
+          }
+        }
+      } catch (e) {
+        console.error("Error fetching calendar summary:", e);
+      }
+      // Fallback: derive from calendarId email local-part
+      deriveEmployeeFromCalendarId(calId);
+    }
+
     async function loadRecentEvents() {
       if (!accessToken) {
         setStatus("No access token yet.", false);
@@ -426,6 +454,9 @@
       }
 
       const calId = (document.getElementById("calendarId").value || "primary").trim();
+
+      // Fill Employee from calendar summary (e.g. "Frazer")
+      await setEmployeeFromCalendar(calId);
 
       // Last 14 days (inclusive) up to end of today
       const now = new Date();
@@ -498,7 +529,6 @@
       }
 
       setStatus("Loaded " + picked.length + " events from last 14 days.", true);
-      deriveEmployeeFromCalendarId(calId);
 
       // Auto-select newest and AI scalp
       if (picked.length > 0) {
@@ -713,7 +743,7 @@
     }
 
     // ======================
-    //  TEXT FLUFFING
+    //  TEXT FLUFFING (fallback)
     // ======================
     function expandNotes(raw) {
       if (!raw) return "";
@@ -734,7 +764,7 @@
     }
 
     // ======================
-    //  OPENAI AI SCALP
+    //  OPENAI – EVENT SCALP
     // ======================
     async function aiParseSelectedEvent() {
       const sel = document.getElementById("eventSelect");
@@ -897,26 +927,99 @@
     }
 
     // ======================
-    //  REPORT BUILDING
+    //  OPENAI – NOTES POLISH (Step 4)
     // ======================
-    function buildReportHtmlBody() {
-      const employee = document.getElementById("employee").value.trim();
-      const jobType  = document.getElementById("jobType").value;
-      const jobDate  = document.getElementById("jobDate").value;
-      const jobAddr  = document.getElementById("jobAddress").value.trim();
-      const jobDesc  = document.getElementById("jobDescription").value.trim();
-      const tech     = document.getElementById("techCheck").value.trim();
-      const persons  = document.getElementById("personsMet").value.trim();
-      const cPhone   = document.getElementById("contactPhone").value.trim();
-      const cEmail   = document.getElementById("contactEmail").value.trim();
-      const cAddr    = document.getElementById("contactAddress").value.trim();
-      const dur      = document.getElementById("timeDuration").value.trim();
-      const findings = document.getElementById("findings").value.trim();
-      const howRaw   = document.getElementById("howLeft").value.trim();
-      const advRaw   = document.getElementById("advisories").value.trim();
-      const howFull  = expandNotes(howRaw);
-      const advFull  = expandNotes(advRaw);
+    async function enhanceNotesWithAI(findingsRaw, howRaw, advRaw) {
+      const fallback = {
+        findingsText: expandNotes(findingsRaw),
+        howLeftText: expandNotes(howRaw),
+        advisoriesText: expandNotes(advRaw)
+      };
 
+      if (!findingsRaw && !howRaw && !advRaw) return fallback;
+
+      const apiKey = localStorage.getItem(OPENAI_KEY_STORAGE);
+      if (!apiKey) return fallback;
+
+      const payload = {
+        shortFindings: findingsRaw || "",
+        shortHowLeft: howRaw || "",
+        shortAdvisories: advRaw || ""
+      };
+
+      const systemPrompt =
+        "You help tidy up terse engineer notes into clear, professional yet concise prose.\n" +
+        "You will receive three fields: shortFindings, shortHowLeft, shortAdvisories.\n" +
+        "- Each field may contain short, fragmentary sentences or bullet-style lines.\n" +
+        "- Rewrite each field into a short, coherent paragraph (or two at most) that reads well.\n" +
+        "- Do NOT invent new facts. Only rephrase what is already present.\n" +
+        "- Maintain technical meaning and intent.\n" +
+        "- If a field is empty, return an empty string for that field.\n\n" +
+        "Return STRICT JSON ONLY in this format:\n" +
+        "{\n" +
+        '  "findings": "rewritten findings paragraph or empty string",\n' +
+        '  "howLeft": "rewritten description of how things have been left, or empty string",\n' +
+        '  "advisories": "rewritten advisories paragraph or empty string"\n' +
+        "}\n" +
+        "No explanations, just the JSON object.";
+
+      try {
+        const res = await fetch("https://api.openai.com/v1/responses", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + apiKey
+          },
+          body: JSON.stringify({
+            model: OPENAI_MODEL,
+            input: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: JSON.stringify(payload) }
+            ]
+          })
+        });
+
+        if (!res.ok) {
+          const txt = await res.text().catch(() => "");
+          console.error("OpenAI notes error:", res.status, txt);
+          return fallback;
+        }
+
+        const data = await res.json();
+        let rawText = "";
+        if (
+          data.output &&
+          data.output[0] &&
+          data.output[0].content &&
+          data.output[0].content[0] &&
+          data.output[0].content[0].text
+        ) {
+          rawText = data.output[0].content[0].text;
+        }
+
+        let parsed;
+        try {
+          parsed = JSON.parse(rawText);
+        } catch (e) {
+          console.error("Failed to parse JSON from OpenAI (notes):", rawText);
+          return fallback;
+        }
+
+        return {
+          findingsText: parsed.findings || fallback.findingsText,
+          howLeftText: parsed.howLeft || fallback.howLeftText,
+          advisoriesText: parsed.advisories || fallback.advisoriesText
+        };
+      } catch (e) {
+        console.error("Notes AI error:", e);
+        return fallback;
+      }
+    }
+
+    // ======================
+    //  REPORT DATA & BUILDERS
+    // ======================
+    function collectFormData() {
       const mediaInput = document.getElementById("mediaFiles");
       const mediaItems = [];
       if (mediaInput.files) {
@@ -924,6 +1027,36 @@
           mediaItems.push(mediaInput.files[i].name);
         }
       }
+
+      return {
+        employee: document.getElementById("employee").value.trim(),
+        jobType: document.getElementById("jobType").value,
+        jobDate: document.getElementById("jobDate").value,
+        jobAddr: document.getElementById("jobAddress").value.trim(),
+        jobDesc: document.getElementById("jobDescription").value.trim(),
+        tech: document.getElementById("techCheck").value.trim(),
+        persons: document.getElementById("personsMet").value.trim(),
+        cPhone: document.getElementById("contactPhone").value.trim(),
+        cEmail: document.getElementById("contactEmail").value.trim(),
+        cAddr: document.getElementById("contactAddress").value.trim(),
+        timeArrived: document.getElementById("timeArrived").value,
+        timeLeft: document.getElementById("timeLeft").value,
+        timeDuration: document.getElementById("timeDuration").value.trim(),
+        findingsRaw: document.getElementById("findings").value.trim(),
+        howLeftRaw: document.getElementById("howLeft").value.trim(),
+        advisoriesRaw: document.getElementById("advisories").value.trim(),
+        mediaItems
+      };
+    }
+
+    function buildReportHtmlBody(data) {
+      const {
+        employee, jobType, jobDate, jobAddr, jobDesc, tech,
+        persons, cPhone, cEmail, cAddr,
+        timeArrived, timeLeft, timeDuration,
+        findingsText, howLeftText, advisoriesText,
+        mediaItems
+      } = data;
 
       const title = "Job Report" +
         (jobType ? " – " + jobType : "") +
@@ -958,27 +1091,25 @@
       sections.push(contactHtml);
 
       if (jobType === "TCO" || jobType === "RTF") {
-        const arr = document.getElementById("timeArrived").value;
-        const left = document.getElementById("timeLeft").value;
         sections.push("<h2>Time on site</h2>");
         sections.push(
-          "<p><b>Arrived:</b> " + (arr || "–") +
-          "<br><b>Left:</b> " + (left || "–") +
-          "<br><b>Duration:</b> " + (dur || "–") + "</p>"
+          "<p><b>Arrived:</b> " + (timeArrived || "–") +
+          "<br><b>Left:</b> " + (timeLeft || "–") +
+          "<br><b>Duration:</b> " + (timeDuration || "–") + "</p>"
         );
       }
 
       sections.push("<h2>Findings</h2>");
-      sections.push("<p>" + (findings ? findings.replace(/\n/g, "<br>") : "–") + "</p>");
+      sections.push("<p>" + (findingsText || "–") + "</p>");
 
       sections.push("<h2>How things have been left</h2>");
-      sections.push("<p>" + (howFull || "–") + "</p>");
+      sections.push("<p>" + (howLeftText || "–") + "</p>");
 
       sections.push("<h2>Advisories</h2>");
-      sections.push("<p>" + (advFull || "–") + "</p>");
+      sections.push("<p>" + (advisoriesText || "–") + "</p>");
 
       sections.push("<h2>Photos / videos</h2>");
-      if (mediaItems.length) {
+      if (mediaItems && mediaItems.length) {
         sections.push("<ul>" + mediaItems.map(n => "<li>" + n + "</li>").join("") + "</ul>");
       } else {
         sections.push("<p>None listed.</p>");
@@ -987,8 +1118,8 @@
       return header + sections.join("");
     }
 
-    function buildReportDocHtml() {
-      const bodyHtml = buildReportHtmlBody();
+    function buildReportDocHtml(data) {
+      const bodyHtml = buildReportHtmlBody(data);
       const css =
         "<style>" +
         "@page { size: A4; margin: 2cm; }" +
@@ -1006,29 +1137,14 @@
              css + "</head><body>" + bodyHtml + "</body></html>";
     }
 
-    function buildReportText() {
-      const employee = document.getElementById("employee").value.trim();
-      const jobType  = document.getElementById("jobType").value;
-      const jobDate  = document.getElementById("jobDate").value;
-      const jobAddr  = document.getElementById("jobAddress").value.trim();
-      const jobDesc  = document.getElementById("jobDescription").value.trim();
-      const tech     = document.getElementById("techCheck").value.trim();
-      const persons  = document.getElementById("personsMet").value.trim();
-      const cPhone   = document.getElementById("contactPhone").value.trim();
-      const cEmail   = document.getElementById("contactEmail").value.trim();
-      const cAddr    = document.getElementById("contactAddress").value.trim();
-      const dur      = document.getElementById("timeDuration").value.trim();
-      const findings = document.getElementById("findings").value.trim();
-      const howFull  = expandNotes(document.getElementById("howLeft").value.trim());
-      const advFull  = expandNotes(document.getElementById("advisories").value.trim());
-
-      const mediaInput = document.getElementById("mediaFiles");
-      const mediaItems = [];
-      if (mediaInput.files) {
-        for (let i = 0; i < mediaInput.files.length; i++) {
-          mediaItems.push(mediaInput.files[i].name);
-        }
-      }
+    function buildReportText(data) {
+      const {
+        employee, jobType, jobDate, jobAddr, jobDesc, tech,
+        persons, cPhone, cEmail, cAddr,
+        timeArrived, timeLeft, timeDuration,
+        findingsText, howLeftText, advisoriesText,
+        mediaItems
+      } = data;
 
       const lines = [];
       lines.push("Job Report");
@@ -1057,32 +1173,30 @@
       lines.push("");
 
       if (jobType === "TCO" || jobType === "RTF") {
-        const arr = document.getElementById("timeArrived").value;
-        const left = document.getElementById("timeLeft").value;
         lines.push("Time on site");
         lines.push("------------");
-        lines.push("Arrived: " + (arr || "-"));
-        lines.push("Left: " + (left || "-"));
-        lines.push("Duration: " + (dur || "-"));
+        lines.push("Arrived: " + (timeArrived || "-"));
+        lines.push("Left: " + (timeLeft || "-"));
+        lines.push("Duration: " + (timeDuration || "-"));
         lines.push("");
       }
 
       lines.push("Findings");
       lines.push("--------");
-      lines.push(findings || "-");
+      lines.push(findingsText || "-");
       lines.push("");
       lines.push("How things have been left");
       lines.push("-------------------------");
-      lines.push(howFull || "-");
+      lines.push(howLeftText || "-");
       lines.push("");
       lines.push("Advisories");
       lines.push("----------");
-      lines.push(advFull || "-");
+      lines.push(advisoriesText || "-");
       lines.push("");
 
       lines.push("Photos / videos");
       lines.push("---------------");
-      if (mediaItems.length) {
+      if (mediaItems && mediaItems.length) {
         for (let i = 0; i < mediaItems.length; i++) {
           lines.push("• " + mediaItems[i]);
         }
@@ -1093,22 +1207,48 @@
       return lines.join("\n");
     }
 
-    function generateReport() {
-      const htmlBody = buildReportHtmlBody();
-      const text = buildReportText();
-      lastReportText = text;
-      const preview = document.getElementById("reportPreview");
-      preview.innerHTML = htmlBody;
-      preview.scrollTop = 0;
+    // ======================
+    //  REPORT GENERATION
+    // ======================
+    async function generateReport() {
+      const btn = document.getElementById("generateBtn");
+      if (btn) btn.disabled = true;
+
+      try {
+        const data = collectFormData();
+        // Use AI (if available) to polish Findings / How left / Advisories
+        const enhanced = await enhanceNotesWithAI(
+          data.findingsRaw,
+          data.howLeftRaw,
+          data.advisoriesRaw
+        );
+        data.findingsText = enhanced.findingsText;
+        data.howLeftText  = enhanced.howLeftText;
+        data.advisoriesText = enhanced.advisoriesText;
+
+        lastReportData = data;
+
+        const htmlBody = buildReportHtmlBody(data);
+        const text = buildReportText(data);
+        lastReportText = text;
+
+        const preview = document.getElementById("reportPreview");
+        preview.innerHTML = htmlBody;
+        preview.scrollTop = 0;
+      } finally {
+        if (btn) btn.disabled = false;
+      }
     }
 
     function viewReport() {
-      if (!lastReportText) generateReport();
+      if (!lastReportText) {
+        generateReport();
+      }
       document.getElementById("reportPreview").scrollIntoView({ behavior: "smooth", block: "start" });
     }
 
     async function copyReportText() {
-      if (!lastReportText) generateReport();
+      if (!lastReportText) await generateReport();
       try {
         await navigator.clipboard.writeText(lastReportText);
         alert("Report text copied to clipboard.");
@@ -1118,9 +1258,13 @@
     }
 
     function downloadWordDoc() {
-      const html = buildReportDocHtml();
-      const jobDate  = document.getElementById("jobDate").value || "";
-      const jobType  = document.getElementById("jobType").value || "job";
+      if (!lastReportData) {
+        alert("Please generate the report first.");
+        return;
+      }
+      const html = buildReportDocHtml(lastReportData);
+      const jobDate  = lastReportData.jobDate || "";
+      const jobType  = lastReportData.jobType || "job";
       const safeType = jobType.replace(/[^a-z0-9]+/gi, "_").toLowerCase();
       const fname = "job_report_" + safeType + (jobDate ? "_" + jobDate : "") + ".doc";
       const blob = new Blob([html], { type: "application/msword" });
@@ -1137,10 +1281,13 @@
     }
 
     function sendReportEmail() {
-      if (!lastReportText) generateReport();
-      const jobType  = document.getElementById("jobType").value || "Job";
-      const jobDate  = document.getElementById("jobDate").value || "";
-      const jobAddr  = document.getElementById("jobAddress").value.trim();
+      if (!lastReportText) {
+        alert("Please generate the report first.");
+        return;
+      }
+      const jobType  = lastReportData?.jobType || "Job";
+      const jobDate  = lastReportData?.jobDate || "";
+      const jobAddr  = lastReportData?.jobAddr || "";
       const subject  = "Job Report – " + jobType +
                        (jobDate ? (" – " + jobDate) : "") +
                        (jobAddr ? (" – " + jobAddr) : "");
