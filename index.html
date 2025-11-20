@@ -410,23 +410,101 @@
     }
 
     async function loadRecentEvents() {
-      if (!accessToken) {
-        setStatus("No access token yet.", false);
-        return;
-      }
-      const calId = (document.getElementById("calendarId").value || "primary").trim();
-      const now = new Date();
-      const nowIso = now.toISOString();
+  if (!accessToken) {
+    setStatus("No access token yet.", false);
+    return;
+  }
 
-      const url = new URL("https://www.googleapis.com/calendar/v3/calendars/" + encodeURIComponent(calId) + "/events");
-      url.searchParams.set("singleEvents", "true");
-      url.searchParams.set("orderBy", "startTime");
-      url.searchParams.set("timeMax", nowIso);      // only past & now
-      url.searchParams.set("maxResults", "50");     // enough to find last 10 past
+  const calId = (document.getElementById("calendarId").value || "primary").trim();
 
-      const res = await fetch(url.toString(), {
-        headers: { "Authorization": "Bearer " + accessToken }
-      });
+  // We only want events from the last 14 days up to the end of today
+  const now = new Date();
+
+  const end = new Date(now);
+  end.setHours(23, 59, 59, 999);
+
+  const start = new Date(now);
+  start.setDate(start.getDate() - 14);
+  start.setHours(0, 0, 0, 0);
+
+  const url = new URL(
+    "https://www.googleapis.com/calendar/v3/calendars/" +
+    encodeURIComponent(calId) +
+    "/events"
+  );
+
+  url.searchParams.set("singleEvents", "true");
+  url.searchParams.set("orderBy", "startTime");
+  url.searchParams.set("timeMin", start.toISOString());
+  url.searchParams.set("timeMax", end.toISOString());
+  url.searchParams.set("maxResults", "250"); // plenty for 14 days
+
+  const res = await fetch(url.toString(), {
+    headers: { "Authorization": "Bearer " + accessToken }
+  });
+
+  if (!res.ok) {
+    setStatus("Calendar API error " + res.status, false);
+    return;
+  }
+
+  const data = await res.json();
+  const all = data.items || [];
+
+  // Sort by startDate DESC so the newest appears first
+  const nowRef = new Date();
+  const processed = all
+    .map(function (ev) {
+      return { ev: ev, startDate: getEventStartDate(ev) };
+    })
+    .filter(function (obj) {
+      return obj.startDate && obj.startDate <= nowRef;
+    })
+    .sort(function (a, b) {
+      return b.startDate - a.startDate; // newest first
+    });
+
+  const picked = processed.map(function (x) { return x.ev; });
+
+  currentEvents = picked;
+
+  const sel = document.getElementById("eventSelect");
+  sel.innerHTML = "";
+
+  if (!picked.length) {
+    const opt = document.createElement("option");
+    opt.value = "";
+    opt.textContent = "No events in the last 14 days.";
+    sel.appendChild(opt);
+    setStatus("No events in the last 14 days.", false);
+    return;
+  }
+
+  const placeholder = document.createElement("option");
+  placeholder.value = "";
+  placeholder.textContent = "— Select job —";
+  sel.appendChild(placeholder);
+
+  for (let i = 0; i < picked.length; i++) {
+    const ev = picked[i];
+    const title = ev.summary || "(no title)";
+    const d = extractPrimaryDate(ev);
+    const opt = document.createElement("option");
+    opt.value = String(i);
+    opt.textContent = (d ? (d + " – ") : "") + title;
+    sel.appendChild(opt);
+  }
+
+  setStatus("Loaded " + picked.length + " events from last 14 days.", true);
+  deriveEmployeeFromCalendarId(calId);
+
+  // Automatically select the most recent and run AI scalp
+  if (picked.length > 0) {
+    sel.selectedIndex = 1; // first real event
+    aiParseSelectedEvent();
+  }
+}
+
       if (!res.ok) {
         setStatus("Calendar API error " + res.status, false);
         return;
