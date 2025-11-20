@@ -7,7 +7,7 @@
   <meta name="color-scheme" content="light dark" />
   <!-- Your OAuth client ID -->
   <meta name="google-oauth-client-id"
-        content="226419865882-ee53il0qdpasqa6m24tc7ts0cpfviv0i.apps.googleusercontent.com" />
+        content="105230737516-l8tlnck4idde83pjetrotobpt8borvts.apps.googleusercontent.com" />
   <style>
     :root {
       --bg:#0f172a; --card:#020617; --panel:#020617; --border:#1e293b;
@@ -48,13 +48,6 @@
       margin: 0 0 6px;
       font-size: 26px;
       letter-spacing: .02em;
-    }
-    h2 {
-      margin: 18px 0 10px;
-      font-size: 18px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
     }
     .muted { color: var(--muted); font-size: 14px; }
     .pill {
@@ -104,7 +97,6 @@
       border-color: var(--accent);
       background: linear-gradient(180deg, var(--accent-soft), transparent);
     }
-    button.danger { border-color: var(--danger); color: var(--danger); }
     button:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(15,23,42,0.5); }
 
     .section {
@@ -146,9 +138,16 @@
       font-size: 13px;
       line-height: 1.5;
     }
-    #reportPreview h3 { margin: 6px 0 2px; font-size: 14px; }
+    #reportPreview h1 { font-size: 16px; margin: 0 0 6px; }
+    #reportPreview h2 { font-size: 14px; margin: 8px 0 4px; }
     #reportPreview p { margin: 2px 0 6px; }
-    #reportPreview ul { margin: 2px 0 6px 18px; padding:0; }
+    #reportPreview table { border-collapse: collapse; width: 100%; margin: 4px 0 8px; }
+    #reportPreview th, #reportPreview td {
+      border: 1px solid var(--border);
+      padding: 4px 6px;
+      font-size: 12px;
+      vertical-align: top;
+    }
 
     .file-list { font-size: 12px; color: var(--muted); margin-top:4px; }
 
@@ -162,48 +161,33 @@
       <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px; flex-wrap:wrap;">
         <div>
           <h1>Job Report Generator</h1>
-          <div class="muted">Pull a job from Google Calendar, fill out findings, then generate a report for the office.</div>
+          <div class="muted">Automatically pull the last 10 jobs from Google Calendar, scalp with AI, and generate a Word report.</div>
         </div>
         <span class="pill">Frazer · AVD Tools</span>
       </div>
 
       <!-- Calendar selection -->
       <div class="section" id="calendarSection">
-        <div class="section-title">Step 1 – Select job from calendar</div>
+        <div class="section-title">Step 1 – Recent jobs from calendar</div>
         <div class="grid">
           <div>
             <label for="calendarId">Calendar ID</label>
             <input id="calendarId"
               value="bb14db72acb2ffd4230316960d02103fa66e54901522ff7b8113eec682f6d42e@group.calendar.google.com" />
-            <div class="small-note">Use your job calendar ID or primary email calendar.</div>
+            <div class="small-note">Used to load your last 10 past events automatically.</div>
           </div>
           <div>
-            <label for="fromDate">From date</label>
-            <input id="fromDate" type="date" />
-          </div>
-          <div>
-            <label for="toDate">To date</label>
-            <input id="toDate" type="date" />
-          </div>
-          <div style="align-self:end;">
-            <div class="btn-row">
-              <button id="signinBtn" class="primary" type="button">Sign in to Google</button>
-              <button id="loadEventsBtn" type="button">Load events</button>
-            </div>
-            <div id="authStatus" class="small-note">Status: Not signed in</div>
-          </div>
-        </div>
-
-        <div class="grid" style="margin-top:10px;">
-          <div>
-            <label for="eventSelect">Events</label>
+            <label for="eventSelect">Recent events (last 10 past)</label>
             <select id="eventSelect">
-              <option value="">— Select event —</option>
+              <option value="">Loading…</option>
             </select>
+            <div id="authStatus" class="small-note">Status: Initialising…</div>
+            <div id="aiStatus" class="small-note"></div>
           </div>
           <div style="align-self:end;">
-            <button id="useEventBtn" type="button">Pull from selected event</button>
-            <div class="small-note">Reads title, description, location & date into the form below.</div>
+            <!-- Keep sign-in button as manual fallback if auto fails -->
+            <button id="signinBtn" type="button">Re-sign into Google</button>
+            <div class="small-note">Normally signs in & loads events automatically.</div>
           </div>
         </div>
       </div>
@@ -214,7 +198,7 @@
         <div class="grid">
           <div>
             <label for="employee">Employee</label>
-            <input id="employee" placeholder="Will try to derive from calendar email (e.g. firstname.lastname@...)" />
+            <input id="employee" placeholder="Derived from calendar ID if possible" />
           </div>
           <div>
             <label for="jobType">Job type</label>
@@ -226,7 +210,7 @@
               <option value="Recce">Recce</option>
               <option value="Job / Installation">Job / Installation</option>
             </select>
-            <div class="small-note">Will auto-detect from title/description if it can; otherwise you choose.</div>
+            <div class="small-note">AI will set this if it can. Otherwise you choose.</div>
           </div>
           <div>
             <label for="jobDate">Job date</label>
@@ -234,20 +218,20 @@
           </div>
           <div>
             <label for="jobAddress">Address / site</label>
-            <input id="jobAddress" placeholder="From location field or description where possible" />
+            <input id="jobAddress" placeholder="From title, location, or description" />
           </div>
         </div>
 
         <div style="margin-top:10px;">
           <label for="jobDescription">Job description</label>
           <textarea id="jobDescription"
-            placeholder="Summary of what you were supposed to do. Will be pre-filled from the event description if possible."></textarea>
+            placeholder="Summary of what you were supposed to do. AI fills from event."></textarea>
         </div>
 
         <div style="margin-top:10px;">
           <label for="techCheck">Tech check summary</label>
           <textarea id="techCheck"
-            placeholder="If description includes TECH CHECK or similar, those notes will be pulled in here for you to tidy."></textarea>
+            placeholder="TECH CHECK notes or similar from the event/linked docs."></textarea>
           <div id="techLinks" class="small-note"></div>
         </div>
       </div>
@@ -295,7 +279,7 @@
               <input id="timeDuration" readonly />
             </div>
           </div>
-          <div class="small-note">If the job is Job / Installation, you can ignore this.</div>
+          <div class="small-note">Ignored for Job / Installation unless you want to note it.</div>
         </div>
       </div>
 
@@ -337,106 +321,108 @@
           <button id="generateBtn" class="primary" type="button">Generate report</button>
           <button id="viewBtn" type="button">View report</button>
           <button id="copyBtn" type="button">Copy report text</button>
+          <button id="downloadDocBtn" type="button">Download Word (.doc)</button>
           <button id="sendBtn" type="button">Send (opens email)</button>
         </div>
-        <div class="small-note">Send opens your email client with the report text prefilled to Neil, Mark & David. Attach photos/videos manually.</div>
+        <div class="small-note">Send opens your email client with the report text prefilled to Neil, Mark &amp; David. Attach photos/videos and the .doc manually.</div>
 
         <div style="margin-top:10px;">
           <label>Report preview</label>
           <div id="reportPreview">No report generated yet.</div>
-          
-      <!-- AI helper -->
-      <div class="section" style="margin-top:12px;">
-        <div class="section-title">Optional – AI assist (OpenAI)</div>
-        <div class="grid">
-          <div>
-            <label for="openaiKey">OpenAI API key (kept on this device)</label>
-            <input id="openaiKey" type="password"
-                   placeholder="sk-..." autocomplete="off" />
-            <div class="small-note">
-              This is stored only in your browser (localStorage). Do <b>not</b> commit it to GitHub.
-            </div>
-          </div>
-        </div>
-        <div class="btn-row" style="margin-top:8px;">
-          <button id="saveKeyBtn" type="button">Save key on this device</button>
-          <button id="clearKeyBtn" type="button">Forget key</button>
-          <button id="aiImproveBtn" class="primary" type="button">
-            AI: Improve fields
-          </button>
-        </div>
-        <div id="aiStatus" class="small-note"></div>
-      </div>
-
         </div>
       </div>
     </div>
   </div>
 
   <script>
-    // --- Google Calendar auth & events ---
-    const CLIENT_ID = "226419865882-ee53il0qdpasqa6m24tc7ts0cpfviv0i.apps.googleusercontent.com";
+    // ======================
+    //  CONFIG / CONSTANTS
+    // ======================
+    const CLIENT_ID = "105230737516-l8tlnck4idde83pjetrotobpt8borvts.apps.googleusercontent.com";
     const SCOPES   = "https://www.googleapis.com/auth/calendar.readonly";
+    const OPENAI_MODEL = "gpt-4.1-mini";
+    const OPENAI_KEY_STORAGE = "avd_job_report_openai_key"; // set via console once
+
+    // To set your OpenAI key once, open browser console on this page and run:
+    // localStorage.setItem('avd_job_report_openai_key', 'sk-XXXX...');
+
     let accessToken = null;
     let tokenClient = null;
-    let currentEvents = [];   // cached events for the selected date range
-    let lastReportText = "";  // plain text version for email / copy
+    let currentEvents = [];
+    let lastReportText = "";
 
     function setStatus(msg, ok) {
       const el = document.getElementById("authStatus");
+      if (!el) return;
       el.textContent = "Status: " + msg;
-      el.className = "small-note " + (ok ? "ok" : "warn");
+      el.style.color = ok === false ? "var(--danger)" : "";
     }
 
+    function setAiStatus(msg, ok) {
+      const el = document.getElementById("aiStatus");
+      if (!el) return;
+      el.textContent = msg;
+      el.style.color = ok === false ? "var(--danger)" : "";
+    }
+
+    // ======================
+    //  GOOGLE AUTH & EVENTS
+    // ======================
     function initAuth() {
       if (!window.google || !google.accounts || !google.accounts.oauth2) return;
       tokenClient = google.accounts.oauth2.initTokenClient({
         client_id: CLIENT_ID,
         scope: SCOPES,
         prompt: "",
-        callback: (resp) => {
+        callback: function(resp) {
           if (resp && resp.access_token) {
             accessToken = resp.access_token;
-            setStatus("Signed in", true);
+            setStatus("Signed in to Google.", true);
+            loadRecentEvents(); // auto load most recent 10 past events
           } else {
-            setStatus("Sign-in failed", false);
+            setStatus("Sign-in failed.", false);
           }
         }
       });
     }
 
-    function signIn() {
+    function signInManual() {
       if (!tokenClient) initAuth();
-      if (!tokenClient) { setStatus("Google auth not ready yet.", false); return; }
+      if (!tokenClient) {
+        setStatus("Google auth not ready.", false);
+        return;
+      }
       tokenClient.requestAccessToken();
     }
 
-    function isoRangeForDate(dateStr) {
-      const [y,m,d] = dateStr.split("-").map(Number);
-      const start = new Date(Date.UTC(y, m-1, d, 0,0,0));
-      const end   = new Date(Date.UTC(y, m-1, d, 23,59,59));
-      return { timeMin: start.toISOString(), timeMax: end.toISOString() };
-    }
-    function isoSpan(fromStr, toStr) {
-      const { timeMin } = isoRangeForDate(fromStr);
-      const { timeMax } = isoRangeForDate(toStr);
-      return { timeMin, timeMax };
+    function getEventStartDate(ev) {
+      if (!ev || !ev.start) return null;
+      if (ev.start.date) return new Date(ev.start.date + "T00:00:00Z");
+      if (ev.start.dateTime) return new Date(ev.start.dateTime);
+      return null;
     }
 
-    async function loadEvents() {
-      if (!accessToken) { setStatus("Sign in first", false); return; }
+    function extractPrimaryDate(ev) {
+      if (!ev || !ev.start) return "";
+      if (ev.start.date) return ev.start.date;
+      if (ev.start.dateTime) return ev.start.dateTime.slice(0, 10);
+      return "";
+    }
+
+    async function loadRecentEvents() {
+      if (!accessToken) {
+        setStatus("No access token yet.", false);
+        return;
+      }
       const calId = (document.getElementById("calendarId").value || "primary").trim();
-      const fromStr = document.getElementById("fromDate").value;
-      const toStr   = document.getElementById("toDate").value;
-      if (!fromStr || !toStr) { setStatus("Select from & to dates", false); return; }
+      const now = new Date();
+      const nowIso = now.toISOString();
 
-      const { timeMin, timeMax } = isoSpan(fromStr, toStr);
       const url = new URL("https://www.googleapis.com/calendar/v3/calendars/" + encodeURIComponent(calId) + "/events");
       url.searchParams.set("singleEvents", "true");
       url.searchParams.set("orderBy", "startTime");
-      url.searchParams.set("timeMin", timeMin);
-      url.searchParams.set("timeMax", timeMax);
-      url.searchParams.set("maxResults", "2500");
+      url.searchParams.set("timeMax", nowIso);      // only past & now
+      url.searchParams.set("maxResults", "50");     // enough to find last 10 past
 
       const res = await fetch(url.toString(), {
         headers: { "Authorization": "Bearer " + accessToken }
@@ -446,65 +432,99 @@
         return;
       }
       const data = await res.json();
-      currentEvents = data.items || [];
-      const sel = document.getElementById("eventSelect");
-      sel.innerHTML = '<option value="">— Select event —</option>';
-      currentEvents.forEach((ev, idx) => {
-        const title = ev.summary || "(no title)";
-        let dateStr = "";
-        if (ev.start) {
-          if (ev.start.date) dateStr = ev.start.date;
-          else if (ev.start.dateTime) dateStr = ev.start.dateTime.slice(0,10);
-        }
-        const opt = document.createElement("option");
-        opt.value = idx;
-        opt.textContent = (dateStr ? (dateStr + " – ") : "") + title;
-        sel.appendChild(opt);
-      });
-      setStatus("Loaded " + currentEvents.length + " events", true);
+      const all = data.items || [];
 
-      // Try to derive employee from calendarId
+      // Filter to events whose start < now, sort descending, take 10
+      const past = all
+        .map(function(ev) {
+          return { ev: ev, startDate: getEventStartDate(ev) };
+        })
+        .filter(function(obj) {
+          return obj.startDate && obj.startDate <= now;
+        })
+        .sort(function(a, b) {
+          return b.startDate - a.startDate; // newest first
+        });
+
+      const picked = past.slice(0, 10).map(function(x) { return x.ev; });
+      currentEvents = picked;
+
+      const sel = document.getElementById("eventSelect");
+      sel.innerHTML = "";
+      if (!picked.length) {
+        const opt = document.createElement("option");
+        opt.value = "";
+        opt.textContent = "No past events found.";
+        sel.appendChild(opt);
+        setStatus("No past events found.", false);
+        return;
+      }
+      const placeholder = document.createElement("option");
+      placeholder.value = "";
+      placeholder.textContent = "— Select job —";
+      sel.appendChild(placeholder);
+
+      for (let i = 0; i < picked.length; i++) {
+        const ev = picked[i];
+        const title = ev.summary || "(no title)";
+        const d = extractPrimaryDate(ev);
+        const opt = document.createElement("option");
+        opt.value = String(i);
+        opt.textContent = (d ? (d + " – ") : "") + title;
+        sel.appendChild(opt);
+      }
+
+      setStatus("Loaded last " + picked.length + " past events.", true);
       deriveEmployeeFromCalendarId(calId);
+
+      // Automatically select the most recent and run AI scalp
+      if (picked.length > 0) {
+        sel.selectedIndex = 1; // first real event
+        aiParseSelectedEvent(); // will fall back to basic if no OpenAI key
+      }
     }
 
     function deriveEmployeeFromCalendarId(calId) {
       const employeeInput = document.getElementById("employee");
       if (!calId || employeeInput.value) return;
-      if (!calId.includes("@")) return;
+      if (calId.indexOf("@") === -1) return;
       const local = calId.split("@")[0];
       const parts = local.split(".");
       if (parts.length >= 2) {
-        const name = parts.map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(" ");
+        const name = parts.map(function(p) {
+          return p.charAt(0).toUpperCase() + p.slice(1);
+        }).join(" ");
         employeeInput.value = name;
       }
     }
 
-    // --- Event → form mapping / helpers ---
+    // ======================
+    //  BASIC (NON-AI) EXTRACTION
+    // ======================
     function detectJobTypeFromText(title, desc) {
       const text = (title + " " + desc).toLowerCase();
-      if (text.includes("tco") || text.includes("technical call out")) return "TCO";
-      if (text.includes("rtf") || text.includes("return to fix")) return "RTF";
-      if (text.includes("recce") || text.includes("site visit") || text.includes("survey")) return "Recce";
-      if (text.includes("install") || text.includes("installation") || text.includes("job/installation")) return "Job / Installation";
-      if (text.includes("meeting") || text.includes("consultation") || text.includes("consult")) return "Meeting / Consultation";
-      return "";
-    }
-
-    function extractPrimaryDate(ev) {
-      if (!ev || !ev.start) return "";
-      if (ev.start.date) return ev.start.date;
-      if (ev.start.dateTime) return ev.start.dateTime.slice(0,10);
+      if (text.indexOf("tco") !== -1 || text.indexOf("technical call out") !== -1) return "TCO";
+      if (text.indexOf("rtf") !== -1 || text.indexOf("return to fix") !== -1) return "RTF";
+      if (text.indexOf("recce") !== -1 || text.indexOf("site visit") !== -1 || text.indexOf("survey") !== -1) return "Recce";
+      if (text.indexOf("install") !== -1 || text.indexOf("installation") !== -1 || text.indexOf("job/installation") !== -1) return "Job / Installation";
+      if (text.indexOf("meeting") !== -1 || text.indexOf("consultation") !== -1 || text.indexOf("consult") !== -1) return "Meeting / Consultation";
       return "";
     }
 
     function basicJobDescription(summary, description) {
-      // Very rough: prefer summary as first line, then a few non-dated lines from description
       let lines = [];
       if (summary) lines.push(summary.trim());
       if (description) {
-        const descLines = description.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-        const useful = descLines.filter(l => !/^\d{4}-\d{2}-\d{2}/.test(l) && !/^\d{2}\/\d{2}\/\d{4}/.test(l));
-        lines = lines.concat(useful.slice(0, 5));
+        const descLines = description.split(/\r?\n/);
+        const trimmed = [];
+        for (let i = 0; i < descLines.length; i++) {
+          const l = descLines[i].trim();
+          if (!l) continue;
+          if (/^\d{4}-\d{2}-\d{2}/.test(l)) continue;
+          if (/^\d{2}\/\d{2}\/\d{4}/.test(l)) continue;
+          trimmed.push(l);
+        }
+        for (let j = 0; j < trimmed.length && j < 5; j++) lines.push(trimmed[j]);
       }
       return lines.join("\n");
     }
@@ -514,32 +534,39 @@
       const lines = description.split(/\r?\n/);
       const techLines = [];
       const links = [];
-      for (const line of lines) {
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
         const lower = line.toLowerCase();
-        if (lower.includes("tech check") || lower.includes("techcheck")) {
+        if (lower.indexOf("tech check") !== -1 || lower.indexOf("techcheck") !== -1) {
           techLines.push(line.trim());
         }
         const urlMatch = line.match(/https?:\/\/\S+/g);
         if (urlMatch) {
-          urlMatch.forEach(u => {
-            if (u.toLowerCase().includes("tech") || u.toLowerCase().includes("check")) {
+          for (let k = 0; k < urlMatch.length; k++) {
+            const u = urlMatch[k];
+            const ul = u.toLowerCase();
+            if (ul.indexOf("tech") !== -1 || ul.indexOf("check") !== -1) {
               links.push(u);
             }
-          });
+          }
         }
       }
-      return { summary: techLines.join("\n"), links };
+      return { summary: techLines.join("\n"), links: links };
     }
 
     function extractContacts(description) {
       if (!description) return { persons:"", phone:"", email:"" };
       const lines = description.split(/\r?\n/);
       const persons = [];
-      for (const line of lines) {
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
         const lower = line.toLowerCase();
-        if (lower.includes("contact:") || lower.includes("contact -") ||
-            lower.includes("on-site contact") || lower.includes("onsite contact") ||
-            lower.startsWith("meet ") || lower.startsWith("meeting with")) {
+        if (lower.indexOf("contact:") !== -1 ||
+            lower.indexOf("contact -") !== -1 ||
+            lower.indexOf("on-site contact") !== -1 ||
+            lower.indexOf("onsite contact") !== -1 ||
+            lower.indexOf("meeting with") === 0 ||
+            lower.indexOf("meet ") === 0) {
           const cleaned = line.replace(/.*:/, "").trim();
           if (cleaned) persons.push(cleaned);
         }
@@ -553,50 +580,43 @@
       };
     }
 
-    function onUseSelectedEvent() {
-      const sel = document.getElementById("eventSelect");
-      if (!sel.value) {
-        alert("Select an event first.");
-        return;
-      }
-      const ev = currentEvents[Number(sel.value)];
-      if (!ev) return;
-
+    function fallbackFillFromEvent(ev) {
       const title = ev.summary || "";
       const desc  = ev.description || "";
       const loc   = ev.location || "";
 
-      // Job type
       const jt = detectJobTypeFromText(title, desc);
       const jobTypeSel = document.getElementById("jobType");
-      if (jt) jobTypeSel.value = jt; else jobTypeSel.value = "";
+      jobTypeSel.value = jt || "";
       updateTimeOnSiteVisibility();
 
-      // Date
       const dateStr = extractPrimaryDate(ev);
       if (dateStr) document.getElementById("jobDate").value = dateStr;
 
-      // Address
-      if (loc && !document.getElementById("jobAddress").value) {
-        document.getElementById("jobAddress").value = loc;
+      // Address/site: prefer location; if none, use title as is
+      const addrInput = document.getElementById("jobAddress");
+      if (!addrInput.value) {
+        if (loc) addrInput.value = loc;
+        else if (title) addrInput.value = title;
       }
 
-      // Job description
       document.getElementById("jobDescription").value = basicJobDescription(title, desc);
 
-      // Tech check
       const tech = extractTechCheck(desc);
       document.getElementById("techCheck").value = tech.summary || "";
       const techLinksDiv = document.getElementById("techLinks");
       if (tech.links.length) {
-        techLinksDiv.innerHTML = "Tech check links: " + tech.links.map(u =>
-          '<a href="' + u + '" target="_blank" rel="noopener">' + u + "</a>"
-        ).join(" · ");
+        let html = "Tech check links: ";
+        for (let i = 0; i < tech.links.length; i++) {
+          const u = tech.links[i];
+          html += '<a href="' + u + '" target="_blank" rel="noopener">' + u + "</a>";
+          if (i < tech.links.length - 1) html += " · ";
+        }
+        techLinksDiv.innerHTML = html;
       } else {
         techLinksDiv.textContent = "";
       }
 
-      // Contacts
       const contacts = extractContacts(desc);
       if (contacts.persons && !document.getElementById("personsMet").value) {
         document.getElementById("personsMet").value = contacts.persons;
@@ -609,21 +629,26 @@
       }
     }
 
-    // --- Time on site ---
+    // ======================
+    //  TIME ON SITE
+    // ======================
     function timeToMinutes(t) {
       if (!t) return null;
       const parts = t.split(":");
       if (parts.length !== 2) return null;
-      const h = Number(parts[0]), m = Number(parts[1]);
+      const h = Number(parts[0]);
+      const m = Number(parts[1]);
       if (isNaN(h) || isNaN(m)) return null;
       return h * 60 + m;
     }
+
     function minutesToHm(mins) {
       if (mins == null || isNaN(mins)) return "";
       const h = Math.floor(mins / 60);
       const m = Math.round(mins % 60);
-      return h + "h " + String(m).padStart(2,"0") + "m";
+      return h + "h " + String(m).padStart(2, "0") + "m";
     }
+
     function updateTimeOnSiteVisibility() {
       const jt = document.getElementById("jobType").value;
       const block = document.getElementById("timeOnSiteBlock");
@@ -633,19 +658,22 @@
         block.style.display = "none";
       }
     }
+
     function recalcTimeOnSite() {
       const start = timeToMinutes(document.getElementById("timeArrived").value);
       const end   = timeToMinutes(document.getElementById("timeLeft").value);
       let dur = "";
       if (start != null && end != null) {
         let diff = end - start;
-        if (diff < 0) diff += 24*60; // handle times across midnight
+        if (diff < 0) diff += 24 * 60;
         dur = minutesToHm(diff);
       }
       document.getElementById("timeDuration").value = dur;
     }
 
-    // --- Media list ---
+    // ======================
+    //  MEDIA LIST
+    // ======================
     function updateMediaList() {
       const input = document.getElementById("mediaFiles");
       const listDiv = document.getElementById("mediaList");
@@ -654,19 +682,27 @@
         return;
       }
       const names = [];
-      for (const f of input.files) {
-        names.push(f.name + " (" + Math.round(f.size/1024) + " KB)");
+      for (let i = 0; i < input.files.length; i++) {
+        const f = input.files[i];
+        names.push(f.name + " (" + Math.round(f.size / 1024) + " KB)");
       }
       listDiv.innerHTML = "Attached (" + input.files.length + "):<br>" +
-        names.map(n => "• " + n).join("<br>");
+        names.map(function(n) { return "• " + n; }).join("<br>");
     }
 
-    // --- Text "fluffing" for How Left / Advisories ---
+    // ======================
+    //  TEXT FLUFFING
+    // ======================
     function expandNotes(raw) {
       if (!raw) return "";
-      const lines = raw.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-      if (!lines.length) return "";
-      const sentences = lines.map(line => {
+      const lines = raw.split(/\r?\n/);
+      const kept = [];
+      for (let i = 0; i < lines.length; i++) {
+        const l = lines[i].trim();
+        if (l) kept.push(l);
+      }
+      if (!kept.length) return "";
+      const sentences = kept.map(function(line) {
         let s = line;
         if (!/[.!?]$/.test(s)) s += ".";
         s = s.charAt(0).toUpperCase() + s.slice(1);
@@ -675,8 +711,174 @@
       return sentences.join(" ");
     }
 
-    // --- Report building ---
-    function buildReportHtml() {
+    // ======================
+    //  OPENAI AI SCALP
+    // ======================
+    async function aiParseSelectedEvent() {
+      const sel = document.getElementById("eventSelect");
+      if (!sel.value) {
+        setAiStatus("Select a job from the list.", false);
+        return;
+      }
+      const ev = currentEvents[Number(sel.value)];
+      if (!ev) {
+        setAiStatus("Selected event not found.", false);
+        return;
+      }
+
+      const apiKey = localStorage.getItem(OPENAI_KEY_STORAGE);
+      const title = ev.summary || "";
+      const desc  = ev.description || "";
+      const loc   = ev.location || "";
+      const start = ev.start || {};
+      const end   = ev.end || {};
+      const attendees = ev.attendees || [];
+
+      // If no key, use basic extraction and stop.
+      if (!apiKey) {
+        fallbackFillFromEvent(ev);
+        setAiStatus("No OpenAI key set. Used basic extraction only.", false);
+        return;
+      }
+
+      const eventData = {
+        title: title,
+        description: desc,
+        location: loc,
+        start: start,
+        end: end,
+        attendees: attendees
+      };
+
+      const systemPrompt =
+        "You are helping an audio-visual company engineer interpret a Google Calendar job event.\n" +
+        "You will receive a JSON object with:\n" +
+        "- title\n" +
+        "- description\n" +
+        "- location\n" +
+        "- start\n" +
+        "- end\n" +
+        "- attendees\n\n" +
+        "Extract concise, factual information for the job report. Only use what is explicitly in the event fields. " +
+        "Do NOT invent sites, people, or details that are not present.\n\n" +
+        "Use ALL of title, description and location when looking for addresses, site names and contacts.\n" +
+        "For example, if the address or site name appears only in the title or only in the location, still use it.\n\n" +
+        "Return STRICT JSON ONLY in this format:\n" +
+        "{\n" +
+        '  "jobType": "TCO | RTF | Meeting / Consultation | Recce | Job / Installation | \"\"",\n' +
+        '  "jobDescription": "1–3 sentence description of what the visit is about, using only details from the event",\n' +
+        '  "techCheckSummary": "summary of any TECH CHECK style notes (from description or location), or empty string",\n' +
+        '  "personsMet": "names of people expected / met on site if mentioned, comma separated",\n' +
+        '  "contactPhone": "phone number if present, else empty string",\n' +
+        '  "contactEmail": "email address if present, else empty string",\n' +
+        '  "contactAddress": "postal or site address text, if present (from title, description, or location), else empty string",\n' +
+        '  "jobDate": "YYYY-MM-DD if obvious from the event start, else empty string",\n' +
+        '  "jobAddress": "best guess at the site name/address (from title and/or location), or empty string"\n' +
+        "}\n\n" +
+        "Rules:\n" +
+        "- If you are not sure about a field, return an empty string.\n" +
+        "- jobType must be one of the allowed labels or an empty string.\n" +
+        "- Do NOT include any explanation, just the JSON object.\n";
+
+      setAiStatus("AI scalping selected event…", true);
+
+      try {
+        const res = await fetch("https://api.openai.com/v1/responses", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + apiKey
+          },
+          body: JSON.stringify({
+            model: OPENAI_MODEL,
+            input: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: JSON.stringify(eventData) }
+            ]
+          })
+        });
+
+        if (!res.ok) {
+          const txt = await res.text().catch(function(){ return ""; });
+          console.error("OpenAI error:", res.status, txt);
+          setAiStatus("OpenAI error " + res.status + ". Used basic extraction instead.", false);
+          fallbackFillFromEvent(ev);
+          return;
+        }
+
+        const data = await res.json();
+        let rawText = "";
+        if (data.output &&
+            data.output[0] &&
+            data.output[0].content &&
+            data.output[0].content[0] &&
+            data.output[0].content[0].text) {
+          rawText = data.output[0].content[0].text;
+        }
+
+        let parsed;
+        try {
+          parsed = JSON.parse(rawText);
+        } catch (e) {
+          console.error("Failed to parse JSON from OpenAI:", rawText);
+          setAiStatus("AI format issue. Used basic extraction instead.", false);
+          fallbackFillFromEvent(ev);
+          return;
+        }
+
+        // Start with basic extraction, then overwrite with AI where present
+        fallbackFillFromEvent(ev);
+
+        const jobTypeSel = document.getElementById("jobType");
+        if (parsed.jobType) jobTypeSel.value = parsed.jobType;
+
+        if (parsed.jobDescription) {
+          document.getElementById("jobDescription").value = parsed.jobDescription;
+        }
+        if (parsed.techCheckSummary) {
+          document.getElementById("techCheck").value = parsed.techCheckSummary;
+        }
+        if (parsed.personsMet) {
+          document.getElementById("personsMet").value = parsed.personsMet;
+        }
+        if (parsed.contactPhone) {
+          document.getElementById("contactPhone").value = parsed.contactPhone;
+        }
+        if (parsed.contactEmail) {
+          document.getElementById("contactEmail").value = parsed.contactEmail;
+        }
+        if (parsed.contactAddress) {
+          document.getElementById("contactAddress").value = parsed.contactAddress;
+        }
+        if (parsed.jobDate) {
+          document.getElementById("jobDate").value = parsed.jobDate;
+        } else {
+          const dateStr = extractPrimaryDate(ev);
+          if (dateStr) document.getElementById("jobDate").value = dateStr;
+        }
+
+        const addrInput = document.getElementById("jobAddress");
+        if (parsed.jobAddress) {
+          addrInput.value = parsed.jobAddress;
+        } else if (!addrInput.value) {
+          // Fallback: location > title
+          if (loc) addrInput.value = loc;
+          else if (title) addrInput.value = title;
+        }
+
+        updateTimeOnSiteVisibility();
+        setAiStatus("AI scalped event and filled fields. Review & tweak as needed.", true);
+      } catch (err) {
+        console.error(err);
+        setAiStatus("Network error talking to OpenAI. Used basic extraction instead.", false);
+        fallbackFillFromEvent(ev);
+      }
+    }
+
+    // ======================
+    //  REPORT BUILDING (HTML + TEXT + DOC)
+    // ======================
+    function buildReportHtmlBody() {
       const employee = document.getElementById("employee").value.trim();
       const jobType  = document.getElementById("jobType").value;
       const jobDate  = document.getElementById("jobDate").value;
@@ -697,59 +899,90 @@
       const mediaInput = document.getElementById("mediaFiles");
       const mediaItems = [];
       if (mediaInput.files) {
-        for (const f of mediaInput.files) mediaItems.push(f.name);
+        for (let i = 0; i < mediaInput.files.length; i++) {
+          mediaItems.push(mediaInput.files[i].name);
+        }
       }
 
-      const parts = [];
-      parts.push("<h3>Header</h3>");
-      parts.push("<p><b>Employee:</b> " + (employee || "–") +
-                 "<br><b>Job type:</b> " + (jobType || "–") +
-                 "<br><b>Date:</b> " + (jobDate || "–") + "</p>");
+      const title = "Job Report" +
+        (jobType ? " – " + jobType : "") +
+        (jobDate ? " – " + jobDate : "");
 
-      parts.push("<h3>Site & description</h3>");
-      parts.push("<p><b>Address/site:</b> " + (jobAddr || "–") + "</p>");
-      parts.push("<p><b>Job description:</b><br>" + (jobDesc ? jobDesc.replace(/\n/g,"<br>") : "–") + "</p>");
+      const header =
+        "<h1>" + title + "</h1>" +
+        "<table>" +
+          "<tr><th style=\"width:20%\">Employee</th><td>" + (employee || "–") + "</td></tr>" +
+          "<tr><th>Job type</th><td>" + (jobType || "–") + "</td></tr>" +
+          "<tr><th>Date</th><td>" + (jobDate || "–") + "</td></tr>" +
+          "<tr><th>Address / site</th><td>" + (jobAddr || "–") + "</td></tr>" +
+          "<tr><th>Person(s) met</th><td>" + (persons || "–") + "</td></tr>" +
+        "</table>";
 
-      parts.push("<h3>Tech check summary</h3>");
-      parts.push("<p>" + (tech ? tech.replace(/\n/g,"<br>") : "–") + "</p>");
-
-      parts.push("<h3>Person(s) met & contacts</h3>");
-      let personHtml = "<p><b>Person(s) met:</b> " + (persons || "–") + "</p>";
       const contactBits = [];
       if (cPhone) contactBits.push("Phone: " + cPhone);
       if (cEmail) contactBits.push("Email: " + cEmail);
-      if (cAddr)  contactBits.push("Postal address: " + cAddr.replace(/\n/g,"; "));
-      if (contactBits.length) {
-        personHtml += "<p>" + contactBits.join("<br>") + "</p>";
-      }
-      parts.push(personHtml);
+      if (cAddr)  contactBits.push("Postal address: " + cAddr.replace(/\n/g, "; "));
+
+      const sections = [];
+
+      sections.push("<h2>Job description</h2>");
+      sections.push("<p>" + (jobDesc ? jobDesc.replace(/\n/g, "<br>") : "–") + "</p>");
+
+      sections.push("<h2>Tech check summary</h2>");
+      sections.push("<p>" + (tech ? tech.replace(/\n/g, "<br>") : "–") + "</p>");
+
+      sections.push("<h2>Contacts</h2>");
+      let contactHtml = "<p><b>Person(s) met:</b> " + (persons || "–") + "</p>";
+      if (contactBits.length) contactHtml += "<p>" + contactBits.join("<br>") + "</p>";
+      sections.push(contactHtml);
 
       if (jobType === "TCO" || jobType === "RTF") {
         const arr = document.getElementById("timeArrived").value;
         const left = document.getElementById("timeLeft").value;
-        parts.push("<h3>Time on site</h3>");
-        parts.push("<p><b>Arrived:</b> " + (arr || "–") +
-                   "<br><b>Left:</b> " + (left || "–") +
-                   "<br><b>Duration:</b> " + (dur || "–") + "</p>");
+        sections.push("<h2>Time on site</h2>");
+        sections.push(
+          "<p><b>Arrived:</b> " + (arr || "–") +
+          "<br><b>Left:</b> " + (left || "–") +
+          "<br><b>Duration:</b> " + (dur || "–") + "</p>"
+        );
       }
 
-      parts.push("<h3>Findings</h3>");
-      parts.push("<p>" + (findings ? findings.replace(/\n/g,"<br>") : "–") + "</p>");
+      sections.push("<h2>Findings</h2>");
+      sections.push("<p>" + (findings ? findings.replace(/\n/g, "<br>") : "–") + "</p>");
 
-      parts.push("<h3>How things have been left</h3>");
-      parts.push("<p>" + (howFull || "–") + "</p>");
+      sections.push("<h2>How things have been left</h2>");
+      sections.push("<p>" + (howFull || "–") + "</p>");
 
-      parts.push("<h3>Advisories</h3>");
-      parts.push("<p>" + (advFull || "–") + "</p>");
+      sections.push("<h2>Advisories</h2>");
+      sections.push("<p>" + (advFull || "–") + "</p>");
 
-      parts.push("<h3>Photos / videos</h3>");
+      sections.push("<h2>Photos / videos</h2>");
       if (mediaItems.length) {
-        parts.push("<ul>" + mediaItems.map(n => "<li>" + n + "</li>").join("") + "</ul>");
+        sections.push("<ul>" + mediaItems.map(function(n) { return "<li>" + n + "</li>"; }).join("") + "</ul>");
       } else {
-        parts.push("<p>None listed.</p>");
+        sections.push("<p>None listed.</p>");
       }
 
-      return parts.join("");
+      return header + sections.join("");
+    }
+
+    function buildReportDocHtml() {
+      const bodyHtml = buildReportHtmlBody();
+      const css =
+        "<style>" +
+        "@page { size: A4; margin: 2cm; }" +
+        "body { font-family: Calibri, Arial, sans-serif; font-size: 11pt; color: #000000; }" +
+        "h1 { font-size: 16pt; margin: 0 0 6pt 0; }" +
+        "h2 { font-size: 13pt; margin: 10pt 0 4pt 0; }" +
+        "table { border-collapse: collapse; width: 100%; margin: 4pt 0 10pt 0; }" +
+        "th, td { border: 1px solid #cccccc; padding: 4pt 6pt; vertical-align: top; }" +
+        "th { background: #f0f0f0; font-weight: bold; }" +
+        "p { margin: 0 0 6pt 0; }" +
+        "ul { margin: 0 0 6pt 18pt; padding: 0; }" +
+        "li { margin: 0 0 2pt 0; }" +
+        "</style>";
+      return "<!doctype html><html><head><meta charset=\"utf-8\"><title>Job Report</title>" +
+             css + "</head><body>" + bodyHtml + "</body></html>";
     }
 
     function buildReportText() {
@@ -771,7 +1004,9 @@
       const mediaInput = document.getElementById("mediaFiles");
       const mediaItems = [];
       if (mediaInput.files) {
-        for (const f of mediaInput.files) mediaItems.push(f.name);
+        for (let i = 0; i < mediaInput.files.length; i++) {
+          mediaItems.push(mediaInput.files[i].name);
+        }
       }
 
       const lines = [];
@@ -827,7 +1062,9 @@
       lines.push("Photos / videos");
       lines.push("---------------");
       if (mediaItems.length) {
-        mediaItems.forEach(n => lines.push("• " + n));
+        for (let i = 0; i < mediaItems.length; i++) {
+          lines.push("• " + mediaItems[i]);
+        }
       } else {
         lines.push("None listed.");
       }
@@ -836,11 +1073,12 @@
     }
 
     function generateReport() {
-      const html = buildReportHtml();
+      const htmlBody = buildReportHtmlBody();
       const text = buildReportText();
       lastReportText = text;
-      document.getElementById("reportPreview").innerHTML = html;
-      document.getElementById("reportPreview").scrollTop = 0;
+      const preview = document.getElementById("reportPreview");
+      preview.innerHTML = htmlBody;
+      preview.scrollTop = 0;
     }
 
     function viewReport() {
@@ -849,9 +1087,7 @@
     }
 
     async function copyReportText() {
-      if (!lastReportText) {
-        generateReport();
-      }
+      if (!lastReportText) generateReport();
       try {
         await navigator.clipboard.writeText(lastReportText);
         alert("Report text copied to clipboard.");
@@ -860,12 +1096,32 @@
       }
     }
 
+    function downloadWordDoc() {
+      const html = buildReportDocHtml();
+      const jobDate  = document.getElementById("jobDate").value || "";
+      const jobType  = document.getElementById("jobType").value || "job";
+      const safeType = jobType.replace(/[^a-z0-9]+/gi, "_").toLowerCase();
+      const fname = "job_report_" + safeType + (jobDate ? "_" + jobDate : "") + ".doc";
+      const blob = new Blob([html], { type: "application/msword" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = fname;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(function() {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 0);
+    }
+
     function sendReportEmail() {
       if (!lastReportText) generateReport();
       const jobType  = document.getElementById("jobType").value || "Job";
       const jobDate  = document.getElementById("jobDate").value || "";
       const jobAddr  = document.getElementById("jobAddress").value.trim();
-      const subject  = "Job Report – " + jobType + (jobDate ? (" – " + jobDate) : "") +
+      const subject  = "Job Report – " + jobType +
+                       (jobDate ? (" – " + jobDate) : "") +
                        (jobAddr ? (" – " + jobAddr) : "");
       const to = [
         "Neil.Lovell@audiovisualdirectuk.co.uk",
@@ -873,199 +1129,54 @@
         "David.Rolt@audiovisualdirectuk.co.uk"
       ].join(",");
 
-      const body = encodeURIComponent(lastReportText + "\n\n(Photos/videos not attached automatically – please attach the relevant files listed above.)");
+      const body = encodeURIComponent(
+        lastReportText +
+        "\n\n(Photos/videos and the Word report are not attached automatically – please attach them manually.)"
+      );
       const mailto = "mailto:" + encodeURIComponent(to) +
                      "?subject=" + encodeURIComponent(subject) +
                      "&body=" + body;
       window.location.href = mailto;
     }
-// --- OpenAI integration (browser-side, user provides key) ---
 
-const OPENAI_MODEL = "gpt-4.1-mini"; // change if you want
-const OPENAI_KEY_STORAGE = "avd_job_report_openai_key";
-
-function setAiStatus(msg, ok) {
-  const el = document.getElementById("aiStatus");
-  if (!el) return;
-  el.textContent = msg;
-  el.style.color = ok ? "" : "var(--danger)";
-}
-
-// Load key from localStorage into the box
-function loadOpenAIKey() {
-  const k = localStorage.getItem(OPENAI_KEY_STORAGE) || "";
-  const box = document.getElementById("openaiKey");
-  if (box) box.value = k;
-}
-
-// Save/remove key
-function saveOpenAIKey() {
-  const box = document.getElementById("openaiKey");
-  if (!box) return;
-  const val = box.value.trim();
-  if (!val) {
-    setAiStatus("No key entered.", false);
-    return;
-  }
-  localStorage.setItem(OPENAI_KEY_STORAGE, val);
-  setAiStatus("API key saved in this browser only.", true);
-}
-function clearOpenAIKey() {
-  localStorage.removeItem(OPENAI_KEY_STORAGE);
-  const box = document.getElementById("openaiKey");
-  if (box) box.value = "";
-  setAiStatus("API key cleared from this browser.", true);
-}
-
-// Call OpenAI Responses API to tidy/summarise fields
-async function runAiImprove() {
-  const apiKey = localStorage.getItem(OPENAI_KEY_STORAGE);
-  if (!apiKey) {
-    setAiStatus("No API key set. Paste it and click 'Save key' first.", false);
-    return;
-  }
-
-  setAiStatus("Talking to OpenAI…", true);
-
-  // Grab current field contents
-  const payload = {
-    jobDescription: document.getElementById("jobDescription").value || "",
-    techCheck:      document.getElementById("techCheck").value || "",
-    findings:       document.getElementById("findings").value || "",
-    howLeft:        document.getElementById("howLeft").value || "",
-    advisories:     document.getElementById("advisories").value || ""
-  };
-
-  const systemPrompt = `
-You are helping an audio-visual company engineer write a clear internal job report.
-
-You will be given:
-- jobDescription: raw description from the calendar / notes
-- techCheck: rough notes from a TECH CHECK document
-- findings: bullet-style engineer findings
-- howLeft: short notes on how the job has been left / next steps
-- advisories: short notes on future recommendations / risks
-
-Return STRICT JSON ONLY in this format:
-{
-  "jobDescription": "cleaned paragraph summarising what the job is about",
-  "techCheckSummary": "tidy summary of tech check notes (or empty string)",
-  "findings": "tidy but still concise findings, in paragraph form",
-  "howLeft": "clear paragraph with next steps / current status",
-  "advisories": "paragraph combining advisories into clear sentences"
-}
-
-Do not include any explanation, just the JSON.
-Keep everything factual based only on the input text. Do not invent extra work or promises.
-  `.trim();
-
-  try {
-    const res = await fetch("https://api.openai.com/v1/responses", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer " + apiKey
-      },
-      body: JSON.stringify({
-        model: OPENAI_MODEL,
-        input: [
-          { role: "system", content: systemPrompt },
-          { role: "user",   content: JSON.stringify(payload) }
-        ]
-      })
-    });
-
-    if (!res.ok) {
-      const txt = await res.text().catch(() => "");
-      console.error("OpenAI error:", res.status, txt);
-      setAiStatus("OpenAI error " + res.status + " – check key & model.", false);
-      return;
-    }
-
-    const data = await res.json();
-    // Responses API: first output, first content chunk, text
-    const rawText =
-      data.output &&
-      data.output[0] &&
-      data.output[0].content &&
-      data.output[0].content[0] &&
-      data.output[0].content[0].text
-        ? data.output[0].content[0].text
-        : "";
-
-    let json;
-    try {
-      json = JSON.parse(rawText);
-    } catch (e) {
-      console.error("Failed to parse JSON from OpenAI:", rawText);
-      setAiStatus("AI replied in an unexpected format. Check console.", false);
-      return;
-    }
-
-    // Write improved text back into fields (only if provided)
-    if (json.jobDescription) {
-      document.getElementById("jobDescription").value = json.jobDescription;
-    }
-    if (json.techCheckSummary) {
-      document.getElementById("techCheck").value = json.techCheckSummary;
-    }
-    if (json.findings) {
-      document.getElementById("findings").value = json.findings;
-    }
-    if (json.howLeft) {
-      document.getElementById("howLeft").value = json.howLeft;
-    }
-    if (json.advisories) {
-      document.getElementById("advisories").value = json.advisories;
-    }
-
-    setAiStatus("AI updated the fields. Review before sending.", true);
-  } catch (err) {
-    console.error(err);
-    setAiStatus("Network or browser error calling OpenAI.", false);
-  }
-}
-
-    // --- Init ---
-    window.addEventListener("DOMContentLoaded", () => {
-      // Default date range: last 14 days
-      const now = new Date();
-      const fmt = d => d.toISOString().slice(0,10);
-      const end = new Date(now);
-      const start = new Date(now);
-      start.setDate(start.getDate() - 14);
-      document.getElementById("fromDate").value = fmt(start);
-      document.getElementById("toDate").value   = fmt(end);
-
-      // Auth
-      document.getElementById("signinBtn").addEventListener("click", signIn);
-      document.getElementById("loadEventsBtn").addEventListener("click", loadEvents);
-      document.getElementById("useEventBtn").addEventListener("click", onUseSelectedEvent);
-
-      // Job type / time on site
+    // ======================
+    //  INIT
+    // ======================
+    window.addEventListener("DOMContentLoaded", function() {
+      // Buttons
+      document.getElementById("signinBtn").addEventListener("click", signInManual);
+      document.getElementById("mediaFiles").addEventListener("change", updateMediaList);
       document.getElementById("jobType").addEventListener("change", updateTimeOnSiteVisibility);
       document.getElementById("timeArrived").addEventListener("change", recalcTimeOnSite);
       document.getElementById("timeLeft").addEventListener("change", recalcTimeOnSite);
-
-      // Media list
-      document.getElementById("mediaFiles").addEventListener("change", updateMediaList);
-
-      // Report buttons
       document.getElementById("generateBtn").addEventListener("click", generateReport);
       document.getElementById("viewBtn").addEventListener("click", viewReport);
       document.getElementById("copyBtn").addEventListener("click", copyReportText);
+      document.getElementById("downloadDocBtn").addEventListener("click", downloadWordDoc);
       document.getElementById("sendBtn").addEventListener("click", sendReportEmail);
-      
-      // OpenAI key + AI improve
-      loadOpenAIKey();
-      document.getElementById("saveKeyBtn").addEventListener("click", saveOpenAIKey);
-      document.getElementById("clearKeyBtn").addEventListener("click", clearOpenAIKey);
-      document.getElementById("aiImproveBtn").addEventListener("click", runAiImprove);
 
-      // Initialize auth client when gsi script ready
-      window.addEventListener("load", () => {
-        try { initAuth(); } catch (e) {}
+      const eventSelect = document.getElementById("eventSelect");
+      eventSelect.addEventListener("change", function() {
+        if (eventSelect.value) aiParseSelectedEvent();
       });
+
+      setStatus("Waiting for Google auth…", true);
+      setAiStatus("", true);
+    });
+
+    // Try to auto-sign-in & load events as soon as GSI is ready
+    window.addEventListener("load", function() {
+      try {
+        initAuth();
+        if (tokenClient) {
+          tokenClient.requestAccessToken();
+        } else {
+          setStatus("Google auth client not ready.", false);
+        }
+      } catch (e) {
+        console.error(e);
+        setStatus("Error initialising Google auth.", false);
+      }
     });
   </script>
 </body>
