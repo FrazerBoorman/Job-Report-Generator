@@ -162,7 +162,7 @@
         <div>
           <h1>Job Report Generator</h1>
           <div class="muted">
-            Tap once to sign into Google, load last 14 days of jobs, AI-fills the report, then export to Word / email.
+            Sign into Google, pick a job, let AI fill the sections and then polish the whole report.
           </div>
         </div>
         <span class="pill">Frazer · AVD Tools</span>
@@ -190,7 +190,7 @@
           </div>
           <div style="align-self:end;">
             <button id="signinBtn" class="primary" type="button">Sign into Google</button>
-            <div class="small-note">One tap. After that, events load & AI runs automatically.</div>
+            <div class="small-note">One tap. After that, events load &amp; AI can auto-fill.</div>
           </div>
         </div>
       </div>
@@ -230,19 +230,19 @@
         <div style="margin-top:10px;">
           <label for="jobDescription">Job description</label>
           <textarea id="jobDescription"
-            placeholder="Summary of what you were supposed to do. AI fills this from the event."></textarea>
+            placeholder="Summary of what you were supposed to do. AI fills this from the event and tidies it."></textarea>
         </div>
 
         <div style="margin-top:10px;">
           <label for="techCheck">Tech check summary</label>
           <textarea id="techCheck"
-            placeholder="TECH CHECK style notes from the event/linked docs."></textarea>
+            placeholder="TECH CHECK style notes from the event/linked docs. AI will also tidy this on generate."></textarea>
           <div id="techLinks" class="small-note"></div>
         </div>
       </div>
 
       <div class="section">
-        <div class="section-title">Step 3 – People & time on site</div>
+        <div class="section-title">Step 3 – People &amp; time on site</div>
         <div class="grid">
           <div>
             <label for="personsMet">Person(s) met</label>
@@ -289,7 +289,7 @@
       </div>
 
       <div class="section">
-        <div class="section-title">Step 4 – Findings & advisories</div>
+        <div class="section-title">Step 4 – Findings &amp; advisories</div>
         <div class="grid">
           <div>
             <label for="findings">Findings</label>
@@ -323,7 +323,7 @@
       </div>
 
       <div class="section">
-        <div class="section-title">Step 6 – Generate, check & send</div>
+        <div class="section-title">Step 6 – Generate, check &amp; send</div>
         <div class="btn-row">
           <button id="generateBtn" class="primary" type="button">Generate report</button>
           <button id="viewBtn" type="button">View report</button>
@@ -927,39 +927,50 @@
     }
 
     // ======================
-    //  OPENAI – NOTES POLISH (Step 4)
+    //  OPENAI – SECTION POLISH (from short notes)
     // ======================
-    async function enhanceNotesWithAI(findingsRaw, howRaw, advRaw) {
+    async function enhanceNotesWithAI(jobDesc, tech, findingsRaw, howRaw, advRaw) {
       const fallback = {
+        jobDescriptionText: jobDesc || "",
+        techSummaryText: tech || "",
         findingsText: expandNotes(findingsRaw),
         howLeftText: expandNotes(howRaw),
         advisoriesText: expandNotes(advRaw)
       };
 
-      if (!findingsRaw && !howRaw && !advRaw) return fallback;
+      if (!jobDesc && !tech && !findingsRaw && !howRaw && !advRaw) return fallback;
 
       const apiKey = localStorage.getItem(OPENAI_KEY_STORAGE);
       if (!apiKey) return fallback;
 
       const payload = {
+        jobDescription: jobDesc || "",
+        techSummary: tech || "",
         shortFindings: findingsRaw || "",
         shortHowLeft: howRaw || "",
         shortAdvisories: advRaw || ""
       };
 
       const systemPrompt =
-        "You help tidy up terse engineer notes into clear, professional yet concise prose.\n" +
-        "You will receive three fields: shortFindings, shortHowLeft, shortAdvisories.\n" +
-        "- Each field may contain short, fragmentary sentences or bullet-style lines.\n" +
-        "- Rewrite each field into a short, coherent paragraph (or two at most) that reads well.\n" +
-        "- Do NOT invent new facts. Only rephrase what is already present.\n" +
-        "- Maintain technical meaning and intent.\n" +
-        "- If a field is empty, return an empty string for that field.\n\n" +
+        "You help turn an AV engineer's rough job report notes into a clean, professional report.\n" +
+        "You will receive five fields:\n" +
+        "- jobDescription: a short description of the job / visit\n" +
+        "- techSummary: any TECH CHECK / technical notes\n" +
+        "- shortFindings: terse findings notes (bullets or fragments)\n" +
+        "- shortHowLeft: terse notes on how things have been left\n" +
+        "- shortAdvisories: terse advisories / next steps\n\n" +
+        "For each field:\n" +
+        "- Rewrite it into a clear, concise paragraph (or two at most) suitable for a report.\n" +
+        "- Keep technical meaning and intent exactly the same.\n" +
+        "- Do NOT invent new facts or speculate on anything that is not explicitly implied.\n" +
+        "- If a field is empty or trivial, return an empty string for that field.\n\n" +
         "Return STRICT JSON ONLY in this format:\n" +
         "{\n" +
-        '  "findings": "rewritten findings paragraph or empty string",\n' +
-        '  "howLeft": "rewritten description of how things have been left, or empty string",\n' +
-        '  "advisories": "rewritten advisories paragraph or empty string"\n' +
+        '  "jobDescription": "polished job description or empty string",\n' +
+        '  "techSummary": "polished tech summary or empty string",\n' +
+        '  "findings": "polished findings paragraph or empty string",\n' +
+        '  "howLeft": "polished how-left paragraph or empty string",\n' +
+        '  "advisories": "polished advisories paragraph or empty string"\n' +
         "}\n" +
         "No explanations, just the JSON object.";
 
@@ -1006,6 +1017,8 @@
         }
 
         return {
+          jobDescriptionText: parsed.jobDescription || fallback.jobDescriptionText,
+          techSummaryText: parsed.techSummary || fallback.techSummaryText,
           findingsText: parsed.findings || fallback.findingsText,
           howLeftText: parsed.howLeft || fallback.howLeftText,
           advisoriesText: parsed.advisories || fallback.advisoriesText
@@ -1013,6 +1026,63 @@
       } catch (e) {
         console.error("Notes AI error:", e);
         return fallback;
+      }
+    }
+
+    // ======================
+    //  OPENAI – WHOLE REPORT POLISH (second pass)
+    // ======================
+    async function polishWholeReportWithAI(reportText) {
+      const apiKey = localStorage.getItem(OPENAI_KEY_STORAGE);
+      if (!apiKey || !reportText) return reportText;
+
+      const systemPrompt =
+        "You will be given a complete job report written by an AV engineer, with headings and sections.\n" +
+        "Rewrite the report so it reads like a polished, professional document, as if it has been tidied up by an experienced writer.\n" +
+        "Rules:\n" +
+        "- Keep ALL existing headings and their order (e.g. 'Job Report', 'Site & description', 'Tech check summary').\n" +
+        "- Preserve all factual content exactly. Do NOT add new jobs, dates, times, components, or incidents.\n" +
+        "- You may merge short choppy sentences, remove duplication, and improve flow.\n" +
+        "- You may adjust punctuation, phrasing and connectors, but not meaning.\n" +
+        "- Do not add new sections. Do not remove any headings.\n" +
+        "- Output plain text only with the same headings present.\n";
+
+      try {
+        const res = await fetch("https://api.openai.com/v1/responses", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + apiKey
+          },
+          body: JSON.stringify({
+            model: OPENAI_MODEL,
+            input: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: reportText }
+            ]
+          })
+        });
+
+        if (!res.ok) {
+          const txt = await res.text().catch(() => "");
+          console.error("OpenAI whole-report error:", res.status, txt);
+          return reportText;
+        }
+
+        const data = await res.json();
+        if (
+          data.output &&
+          data.output[0] &&
+          data.output[0].content &&
+          data.output[0].content[0] &&
+          data.output[0].content[0].text
+        ) {
+          return data.output[0].content[0].text;
+        }
+        return reportText;
+      } catch (e) {
+        console.error("Whole-report polish error:", e);
+        return reportText;
       }
     }
 
@@ -1157,6 +1227,7 @@
       lines.push("Site & description");
       lines.push("------------------");
       lines.push("Address/site: " + (jobAddr || "-"));
+      lines.push("");
       lines.push("Job description:");
       lines.push(jobDesc || "-");
       lines.push("");
@@ -1216,25 +1287,36 @@
 
       try {
         const data = collectFormData();
-        // Use AI (if available) to polish Findings / How left / Advisories
+
+        // First AI pass: polish sections from your short notes
         const enhanced = await enhanceNotesWithAI(
+          data.jobDesc,
+          data.tech,
           data.findingsRaw,
           data.howLeftRaw,
           data.advisoriesRaw
         );
+
+        data.jobDesc      = enhanced.jobDescriptionText;
+        data.tech         = enhanced.techSummaryText;
         data.findingsText = enhanced.findingsText;
         data.howLeftText  = enhanced.howLeftText;
         data.advisoriesText = enhanced.advisoriesText;
 
         lastReportData = data;
 
+        // Build HTML preview & Word document content from polished sections
         const htmlBody = buildReportHtmlBody(data);
-        const text = buildReportText(data);
-        lastReportText = text;
-
         const preview = document.getElementById("reportPreview");
         preview.innerHTML = htmlBody;
         preview.scrollTop = 0;
+
+        // Build structured plain-text report from the polished sections
+        const baseText = buildReportText(data);
+
+        // Second AI pass: polish the whole report text as if you fed it to ChatGPT
+        const polishedText = await polishWholeReportWithAI(baseText);
+        lastReportText = polishedText || baseText;
       } finally {
         if (btn) btn.disabled = false;
       }
@@ -1281,13 +1363,13 @@
     }
 
     function sendReportEmail() {
-      if (!lastReportText) {
+      if (!lastReportText || !lastReportData) {
         alert("Please generate the report first.");
         return;
       }
-      const jobType  = lastReportData?.jobType || "Job";
-      const jobDate  = lastReportData?.jobDate || "";
-      const jobAddr  = lastReportData?.jobAddr || "";
+      const jobType  = lastReportData.jobType || "Job";
+      const jobDate  = lastReportData.jobDate || "";
+      const jobAddr  = lastReportData.jobAddr || "";
       const subject  = "Job Report – " + jobType +
                        (jobDate ? (" – " + jobDate) : "") +
                        (jobAddr ? (" – " + jobAddr) : "");
