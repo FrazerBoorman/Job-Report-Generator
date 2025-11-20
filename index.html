@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Job Report Generator</title>
   <meta name="color-scheme" content="light dark" />
-  <!-- Your OAuth client ID -->
+  <!-- Google OAuth client ID -->
   <meta name="google-oauth-client-id"
         content="105230737516-l8tlnck4idde83pjetrotobpt8borvts.apps.googleusercontent.com" />
   <style>
@@ -97,7 +97,10 @@
       border-color: var(--accent);
       background: linear-gradient(180deg, var(--accent-soft), transparent);
     }
-    button:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(15,23,42,0.5); }
+    button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(15,23,42,0.5);
+    }
 
     .section {
       margin-top: 16px;
@@ -117,7 +120,6 @@
       color: var(--muted);
       margin-bottom: 6px;
     }
-    .row { display:flex; gap:10px; flex-wrap:wrap; }
 
     details.contacts { margin-top:6px; }
     details.contacts summary {
@@ -150,8 +152,6 @@
     }
 
     .file-list { font-size: 12px; color: var(--muted); margin-top:4px; }
-
-    .warning { color: var(--danger); font-size: 12px; margin-top: 4px; }
   </style>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
@@ -161,33 +161,36 @@
       <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px; flex-wrap:wrap;">
         <div>
           <h1>Job Report Generator</h1>
-          <div class="muted">Automatically pull the last 10 jobs from Google Calendar, scalp with AI, and generate a Word report.</div>
+          <div class="muted">
+            Tap once to sign into Google, load last 14 days of jobs, AI-fills the report, then export to Word / email.
+          </div>
         </div>
         <span class="pill">Frazer · AVD Tools</span>
       </div>
 
       <!-- Calendar selection -->
-      <div class="section" id="calendarSection">
-        <div class="section-title">Step 1 – Recent jobs from calendar</div>
+      <div class="section">
+        <div class="section-title">Step 1 – Load recent jobs from calendar</div>
         <div class="grid">
           <div>
             <label for="calendarId">Calendar ID</label>
             <input id="calendarId"
               value="bb14db72acb2ffd4230316960d02103fa66e54901522ff7b8113eec682f6d42e@group.calendar.google.com" />
-            <div class="small-note">Used to load your last 10 past events automatically.</div>
+            <div class="small-note">
+              Used to load jobs from the last 14 days and today.
+            </div>
           </div>
           <div>
-            <label for="eventSelect">Recent events (last 10 past)</label>
+            <label for="eventSelect">Recent events (last 14 days + today)</label>
             <select id="eventSelect">
-              <option value="">Loading…</option>
+              <option value="">Sign in to load events…</option>
             </select>
-            <div id="authStatus" class="small-note">Status: Initialising…</div>
+            <div id="authStatus" class="small-note">Status: Waiting for sign-in…</div>
             <div id="aiStatus" class="small-note"></div>
           </div>
           <div style="align-self:end;">
-            <!-- Keep sign-in button as manual fallback if auto fails -->
-            <button id="signinBtn" type="button">Re-sign into Google</button>
-            <div class="small-note">Normally signs in & loads events automatically.</div>
+            <button id="signinBtn" class="primary" type="button">Sign into Google</button>
+            <div class="small-note">One tap. After that, events load & AI runs automatically.</div>
           </div>
         </div>
       </div>
@@ -210,7 +213,9 @@
               <option value="Recce">Recce</option>
               <option value="Job / Installation">Job / Installation</option>
             </select>
-            <div class="small-note">AI will set this if it can. Otherwise you choose.</div>
+            <div class="small-note">
+              AI will set this if it can. Otherwise you choose.
+            </div>
           </div>
           <div>
             <label for="jobDate">Job date</label>
@@ -218,20 +223,20 @@
           </div>
           <div>
             <label for="jobAddress">Address / site</label>
-            <input id="jobAddress" placeholder="From title, location, or description" />
+            <input id="jobAddress" placeholder="From title, location or description" />
           </div>
         </div>
 
         <div style="margin-top:10px;">
           <label for="jobDescription">Job description</label>
           <textarea id="jobDescription"
-            placeholder="Summary of what you were supposed to do. AI fills from event."></textarea>
+            placeholder="Summary of what you were supposed to do. AI fills this from the event."></textarea>
         </div>
 
         <div style="margin-top:10px;">
           <label for="techCheck">Tech check summary</label>
           <textarea id="techCheck"
-            placeholder="TECH CHECK notes or similar from the event/linked docs."></textarea>
+            placeholder="TECH CHECK style notes from the event/linked docs."></textarea>
           <div id="techLinks" class="small-note"></div>
         </div>
       </div>
@@ -265,7 +270,7 @@
 
         <div id="timeOnSiteBlock" style="margin-top:10px; display:none;">
           <label>Time on site (for TCO/RTF)</label>
-          <div class="row">
+          <div class="row" style="display:flex;gap:10px;flex-wrap:wrap;">
             <div style="flex:1 1 160px;">
               <label for="timeArrived" style="font-weight:500;font-size:12px;">Arrived</label>
               <input id="timeArrived" type="time" />
@@ -309,12 +314,14 @@
         <div>
           <label for="mediaFiles">Upload photos / videos</label>
           <input id="mediaFiles" type="file" accept="image/*,video/*" multiple />
-          <div class="small-note">Files are only kept locally in your browser. They can’t be emailed automatically from here, but they’ll be listed in the report so you know what to attach.</div>
+          <div class="small-note">
+            Files stay local in your browser. They can’t be emailed automatically from here,
+            but they’ll be listed in the report so you know what to attach.
+          </div>
           <div id="mediaList" class="file-list"></div>
         </div>
       </div>
 
-      <!-- Actions & preview -->
       <div class="section">
         <div class="section-title">Step 6 – Generate, check & send</div>
         <div class="btn-row">
@@ -324,7 +331,10 @@
           <button id="downloadDocBtn" type="button">Download Word (.doc)</button>
           <button id="sendBtn" type="button">Send (opens email)</button>
         </div>
-        <div class="small-note">Send opens your email client with the report text prefilled to Neil, Mark &amp; David. Attach photos/videos and the .doc manually.</div>
+        <div class="small-note">
+          “Send” opens your email client addressed to Neil, Mark & David with the report text.
+          Attach the Word doc + photos/videos manually.
+        </div>
 
         <div style="margin-top:10px;">
           <label>Report preview</label>
@@ -343,8 +353,8 @@
     const OPENAI_MODEL = "gpt-4.1-mini";
     const OPENAI_KEY_STORAGE = "avd_job_report_openai_key"; // set via console once
 
-    // To set your OpenAI key once, open browser console on this page and run:
-    // localStorage.setItem('avd_job_report_openai_key', 'sk-XXXX...');
+    // To set your OpenAI key once, open browser devtools console on this page and run:
+    // localStorage.setItem('avd_job_report_openai_key', 'sk-REPLACE_WITH_YOUR_KEY');
 
     let accessToken = null;
     let tokenClient = null;
@@ -377,8 +387,8 @@
         callback: function(resp) {
           if (resp && resp.access_token) {
             accessToken = resp.access_token;
-            setStatus("Signed in to Google.", true);
-            loadRecentEvents(); // auto load most recent 10 past events
+            setStatus("Signed in. Loading last 14 days…", true);
+            loadRecentEvents();
           } else {
             setStatus("Sign-in failed.", false);
           }
@@ -410,133 +420,68 @@
     }
 
     async function loadRecentEvents() {
-  if (!accessToken) {
-    setStatus("No access token yet.", false);
-    return;
-  }
+      if (!accessToken) {
+        setStatus("No access token yet.", false);
+        return;
+      }
 
-  const calId = (document.getElementById("calendarId").value || "primary").trim();
+      const calId = (document.getElementById("calendarId").value || "primary").trim();
 
-  // We only want events from the last 14 days up to the end of today
-  const now = new Date();
+      // Last 14 days (inclusive) up to end of today
+      const now = new Date();
+      const end = new Date(now);
+      end.setHours(23, 59, 59, 999);
 
-  const end = new Date(now);
-  end.setHours(23, 59, 59, 999);
+      const start = new Date(now);
+      start.setDate(start.getDate() - 14);
+      start.setHours(0, 0, 0, 0);
 
-  const start = new Date(now);
-  start.setDate(start.getDate() - 14);
-  start.setHours(0, 0, 0, 0);
+      const url = new URL(
+        "https://www.googleapis.com/calendar/v3/calendars/" +
+        encodeURIComponent(calId) +
+        "/events"
+      );
 
-  const url = new URL(
-    "https://www.googleapis.com/calendar/v3/calendars/" +
-    encodeURIComponent(calId) +
-    "/events"
-  );
+      url.searchParams.set("singleEvents", "true");
+      url.searchParams.set("orderBy", "startTime");
+      url.searchParams.set("timeMin", start.toISOString());
+      url.searchParams.set("timeMax", end.toISOString());
+      url.searchParams.set("maxResults", "250");
 
-  url.searchParams.set("singleEvents", "true");
-  url.searchParams.set("orderBy", "startTime");
-  url.searchParams.set("timeMin", start.toISOString());
-  url.searchParams.set("timeMax", end.toISOString());
-  url.searchParams.set("maxResults", "250"); // plenty for 14 days
-
-  const res = await fetch(url.toString(), {
-    headers: { "Authorization": "Bearer " + accessToken }
-  });
-
-  if (!res.ok) {
-    setStatus("Calendar API error " + res.status, false);
-    return;
-  }
-
-  const data = await res.json();
-  const all = data.items || [];
-
-  // Sort by startDate DESC so the newest appears first
-  const nowRef = new Date();
-  const processed = all
-    .map(function (ev) {
-      return { ev: ev, startDate: getEventStartDate(ev) };
-    })
-    .filter(function (obj) {
-      return obj.startDate && obj.startDate <= nowRef;
-    })
-    .sort(function (a, b) {
-      return b.startDate - a.startDate; // newest first
-    });
-
-  const picked = processed.map(function (x) { return x.ev; });
-
-  currentEvents = picked;
-
-  const sel = document.getElementById("eventSelect");
-  sel.innerHTML = "";
-
-  if (!picked.length) {
-    const opt = document.createElement("option");
-    opt.value = "";
-    opt.textContent = "No events in the last 14 days.";
-    sel.appendChild(opt);
-    setStatus("No events in the last 14 days.", false);
-    return;
-  }
-
-  const placeholder = document.createElement("option");
-  placeholder.value = "";
-  placeholder.textContent = "— Select job —";
-  sel.appendChild(placeholder);
-
-  for (let i = 0; i < picked.length; i++) {
-    const ev = picked[i];
-    const title = ev.summary || "(no title)";
-    const d = extractPrimaryDate(ev);
-    const opt = document.createElement("option");
-    opt.value = String(i);
-    opt.textContent = (d ? (d + " – ") : "") + title;
-    sel.appendChild(opt);
-  }
-
-  setStatus("Loaded " + picked.length + " events from last 14 days.", true);
-  deriveEmployeeFromCalendarId(calId);
-
-  // Automatically select the most recent and run AI scalp
-  if (picked.length > 0) {
-    sel.selectedIndex = 1; // first real event
-    aiParseSelectedEvent();
-  }
-}
+      const res = await fetch(url.toString(), {
+        headers: { "Authorization": "Bearer " + accessToken }
+      });
 
       if (!res.ok) {
         setStatus("Calendar API error " + res.status, false);
         return;
       }
+
       const data = await res.json();
       const all = data.items || [];
+      const nowRef = new Date();
 
-      // Filter to events whose start < now, sort descending, take 10
-      const past = all
-        .map(function(ev) {
-          return { ev: ev, startDate: getEventStartDate(ev) };
-        })
-        .filter(function(obj) {
-          return obj.startDate && obj.startDate <= now;
-        })
-        .sort(function(a, b) {
-          return b.startDate - a.startDate; // newest first
-        });
+      // Filter to events in this window, sort newest first
+      const processed = all
+        .map(ev => ({ ev, startDate: getEventStartDate(ev) }))
+        .filter(obj => obj.startDate && obj.startDate <= nowRef)
+        .sort((a, b) => b.startDate - a.startDate);
 
-      const picked = past.slice(0, 10).map(function(x) { return x.ev; });
+      const picked = processed.map(x => x.ev);
       currentEvents = picked;
 
       const sel = document.getElementById("eventSelect");
       sel.innerHTML = "";
+
       if (!picked.length) {
         const opt = document.createElement("option");
         opt.value = "";
-        opt.textContent = "No past events found.";
+        opt.textContent = "No events in the last 14 days.";
         sel.appendChild(opt);
-        setStatus("No past events found.", false);
+        setStatus("No events in the last 14 days.", false);
         return;
       }
+
       const placeholder = document.createElement("option");
       placeholder.value = "";
       placeholder.textContent = "— Select job —";
@@ -552,13 +497,13 @@
         sel.appendChild(opt);
       }
 
-      setStatus("Loaded last " + picked.length + " past events.", true);
+      setStatus("Loaded " + picked.length + " events from last 14 days.", true);
       deriveEmployeeFromCalendarId(calId);
 
-      // Automatically select the most recent and run AI scalp
+      // Auto-select newest and AI scalp
       if (picked.length > 0) {
         sel.selectedIndex = 1; // first real event
-        aiParseSelectedEvent(); // will fall back to basic if no OpenAI key
+        aiParseSelectedEvent();
       }
     }
 
@@ -569,9 +514,7 @@
       const local = calId.split("@")[0];
       const parts = local.split(".");
       if (parts.length >= 2) {
-        const name = parts.map(function(p) {
-          return p.charAt(0).toUpperCase() + p.slice(1);
-        }).join(" ");
+        const name = parts.map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(" ");
         employeeInput.value = name;
       }
     }
@@ -581,11 +524,11 @@
     // ======================
     function detectJobTypeFromText(title, desc) {
       const text = (title + " " + desc).toLowerCase();
-      if (text.indexOf("tco") !== -1 || text.indexOf("technical call out") !== -1) return "TCO";
-      if (text.indexOf("rtf") !== -1 || text.indexOf("return to fix") !== -1) return "RTF";
-      if (text.indexOf("recce") !== -1 || text.indexOf("site visit") !== -1 || text.indexOf("survey") !== -1) return "Recce";
-      if (text.indexOf("install") !== -1 || text.indexOf("installation") !== -1 || text.indexOf("job/installation") !== -1) return "Job / Installation";
-      if (text.indexOf("meeting") !== -1 || text.indexOf("consultation") !== -1 || text.indexOf("consult") !== -1) return "Meeting / Consultation";
+      if (text.includes("tco") || text.includes("technical call out")) return "TCO";
+      if (text.includes("rtf") || text.includes("return to fix")) return "RTF";
+      if (text.includes("recce") || text.includes("site visit") || text.includes("survey")) return "Recce";
+      if (text.includes("install") || text.includes("installation") || text.includes("job/installation")) return "Job / Installation";
+      if (text.includes("meeting") || text.includes("consultation") || text.includes("consult")) return "Meeting / Consultation";
       return "";
     }
 
@@ -615,7 +558,7 @@
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
         const lower = line.toLowerCase();
-        if (lower.indexOf("tech check") !== -1 || lower.indexOf("techcheck") !== -1) {
+        if (lower.includes("tech check") || lower.includes("techcheck")) {
           techLines.push(line.trim());
         }
         const urlMatch = line.match(/https?:\/\/\S+/g);
@@ -623,13 +566,13 @@
           for (let k = 0; k < urlMatch.length; k++) {
             const u = urlMatch[k];
             const ul = u.toLowerCase();
-            if (ul.indexOf("tech") !== -1 || ul.indexOf("check") !== -1) {
+            if (ul.includes("tech") || ul.includes("check")) {
               links.push(u);
             }
           }
         }
       }
-      return { summary: techLines.join("\n"), links: links };
+      return { summary: techLines.join("\n"), links };
     }
 
     function extractContacts(description) {
@@ -639,12 +582,14 @@
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
         const lower = line.toLowerCase();
-        if (lower.indexOf("contact:") !== -1 ||
-            lower.indexOf("contact -") !== -1 ||
-            lower.indexOf("on-site contact") !== -1 ||
-            lower.indexOf("onsite contact") !== -1 ||
-            lower.indexOf("meeting with") === 0 ||
-            lower.indexOf("meet ") === 0) {
+        if (
+          lower.includes("contact:") ||
+          lower.includes("contact -") ||
+          lower.includes("on-site contact") ||
+          lower.includes("onsite contact") ||
+          lower.startsWith("meeting with") ||
+          lower.startsWith("meet ")
+        ) {
           const cleaned = line.replace(/.*:/, "").trim();
           if (cleaned) persons.push(cleaned);
         }
@@ -671,11 +616,10 @@
       const dateStr = extractPrimaryDate(ev);
       if (dateStr) document.getElementById("jobDate").value = dateStr;
 
-      // Address/site: prefer location; if none, use title as is
       const addrInput = document.getElementById("jobAddress");
       if (!addrInput.value) {
         if (loc) addrInput.value = loc;
-        else if (title) addrInput.value = title;
+        else if (title) addrInput.value = title; // title often includes hall name + town
       }
 
       document.getElementById("jobDescription").value = basicJobDescription(title, desc);
@@ -765,7 +709,7 @@
         names.push(f.name + " (" + Math.round(f.size / 1024) + " KB)");
       }
       listDiv.innerHTML = "Attached (" + input.files.length + "):<br>" +
-        names.map(function(n) { return "• " + n; }).join("<br>");
+        names.map(n => "• " + n).join("<br>");
     }
 
     // ======================
@@ -780,7 +724,7 @@
         if (l) kept.push(l);
       }
       if (!kept.length) return "";
-      const sentences = kept.map(function(line) {
+      const sentences = kept.map(line => {
         let s = line;
         if (!/[.!?]$/.test(s)) s += ".";
         s = s.charAt(0).toUpperCase() + s.slice(1);
@@ -812,51 +756,49 @@
       const end   = ev.end || {};
       const attendees = ev.attendees || [];
 
-      // If no key, use basic extraction and stop.
       if (!apiKey) {
         fallbackFillFromEvent(ev);
-        setAiStatus("No OpenAI key set. Used basic extraction only.", false);
+        setAiStatus("No OpenAI key set (using basic extraction only).", false);
         return;
       }
 
       const eventData = {
-        title: title,
+        title,
         description: desc,
         location: loc,
-        start: start,
-        end: end,
-        attendees: attendees
+        start,
+        end,
+        attendees
       };
 
       const systemPrompt =
         "You are helping an audio-visual company engineer interpret a Google Calendar job event.\n" +
-        "You will receive a JSON object with:\n" +
-        "- title\n" +
-        "- description\n" +
-        "- location\n" +
-        "- start\n" +
-        "- end\n" +
-        "- attendees\n\n" +
-        "Extract concise, factual information for the job report. Only use what is explicitly in the event fields. " +
-        "Do NOT invent sites, people, or details that are not present.\n\n" +
-        "Use ALL of title, description and location when looking for addresses, site names and contacts.\n" +
-        "For example, if the address or site name appears only in the title or only in the location, still use it.\n\n" +
+        "You receive a JSON object with title, description, location, start, end, attendees.\n" +
+        "Your job is to fill as many report fields as possible using ONLY information present in those fields.\n" +
+        "You must NOT invent any details from thin air.\n\n" +
+        "Use ALL of: title, description, and location to find:\n" +
+        "- job type (TCO, RTF, Meeting / Consultation, Recce, Job / Installation)\n" +
+        "- job description\n" +
+        "- tech check notes\n" +
+        "- persons met\n" +
+        "- contact phone / email / address\n" +
+        "- job date\n" +
+        "- address/site (hall / church name, town, postcode etc)\n\n" +
+        "If something is not clearly supported by the event text, leave that field empty.\n\n" +
         "Return STRICT JSON ONLY in this format:\n" +
         "{\n" +
-        '  "jobType": "TCO | RTF | Meeting / Consultation | Recce | Job / Installation | \"\"",\n' +
-        '  "jobDescription": "1–3 sentence description of what the visit is about, using only details from the event",\n' +
-        '  "techCheckSummary": "summary of any TECH CHECK style notes (from description or location), or empty string",\n' +
+        '  "jobType": "TCO | RTF | Meeting / Consultation | Recce | Job / Installation | \\"\\\"",\n' +
+        '  "jobDescription": "1–3 sentence description of what the visit is about, using only event details",\n' +
+        '  "techCheckSummary": "summary of any TECH CHECK style notes, or empty string",\n' +
         '  "personsMet": "names of people expected / met on site if mentioned, comma separated",\n' +
         '  "contactPhone": "phone number if present, else empty string",\n' +
         '  "contactEmail": "email address if present, else empty string",\n' +
-        '  "contactAddress": "postal or site address text, if present (from title, description, or location), else empty string",\n' +
+        '  "contactAddress": "postal or site address text, if present (title/description/location), else empty string",\n' +
         '  "jobDate": "YYYY-MM-DD if obvious from the event start, else empty string",\n' +
-        '  "jobAddress": "best guess at the site name/address (from title and/or location), or empty string"\n' +
+        '  "jobAddress": "best guess at site name/address (title and/or location), else empty string"\n' +
         "}\n\n" +
-        "Rules:\n" +
-        "- If you are not sure about a field, return an empty string.\n" +
-        "- jobType must be one of the allowed labels or an empty string.\n" +
-        "- Do NOT include any explanation, just the JSON object.\n";
+        "If you are not sure about any field, return an empty string for that field.\n" +
+        "Do NOT include explanations. Only output the JSON object.";
 
       setAiStatus("AI scalping selected event…", true);
 
@@ -877,20 +819,22 @@
         });
 
         if (!res.ok) {
-          const txt = await res.text().catch(function(){ return ""; });
+          const txt = await res.text().catch(() => "");
           console.error("OpenAI error:", res.status, txt);
-          setAiStatus("OpenAI error " + res.status + ". Used basic extraction instead.", false);
+          setAiStatus("OpenAI error " + res.status + ". Basic extraction used instead.", false);
           fallbackFillFromEvent(ev);
           return;
         }
 
         const data = await res.json();
         let rawText = "";
-        if (data.output &&
-            data.output[0] &&
-            data.output[0].content &&
-            data.output[0].content[0] &&
-            data.output[0].content[0].text) {
+        if (
+          data.output &&
+          data.output[0] &&
+          data.output[0].content &&
+          data.output[0].content[0] &&
+          data.output[0].content[0].text
+        ) {
           rawText = data.output[0].content[0].text;
         }
 
@@ -899,12 +843,12 @@
           parsed = JSON.parse(rawText);
         } catch (e) {
           console.error("Failed to parse JSON from OpenAI:", rawText);
-          setAiStatus("AI format issue. Used basic extraction instead.", false);
+          setAiStatus("AI format issue. Basic extraction used instead.", false);
           fallbackFillFromEvent(ev);
           return;
         }
 
-        // Start with basic extraction, then overwrite with AI where present
+        // Start with fallback, then overlay AI where it gives values
         fallbackFillFromEvent(ev);
 
         const jobTypeSel = document.getElementById("jobType");
@@ -939,22 +883,21 @@
         if (parsed.jobAddress) {
           addrInput.value = parsed.jobAddress;
         } else if (!addrInput.value) {
-          // Fallback: location > title
           if (loc) addrInput.value = loc;
           else if (title) addrInput.value = title;
         }
 
         updateTimeOnSiteVisibility();
-        setAiStatus("AI scalped event and filled fields. Review & tweak as needed.", true);
+        setAiStatus("AI scalped event. Review & tweak as needed.", true);
       } catch (err) {
         console.error(err);
-        setAiStatus("Network error talking to OpenAI. Used basic extraction instead.", false);
+        setAiStatus("Network error talking to OpenAI. Basic extraction used instead.", false);
         fallbackFillFromEvent(ev);
       }
     }
 
     // ======================
-    //  REPORT BUILDING (HTML + TEXT + DOC)
+    //  REPORT BUILDING
     // ======================
     function buildReportHtmlBody() {
       const employee = document.getElementById("employee").value.trim();
@@ -1036,7 +979,7 @@
 
       sections.push("<h2>Photos / videos</h2>");
       if (mediaItems.length) {
-        sections.push("<ul>" + mediaItems.map(function(n) { return "<li>" + n + "</li>"; }).join("") + "</ul>");
+        sections.push("<ul>" + mediaItems.map(n => "<li>" + n + "</li>").join("") + "</ul>");
       } else {
         sections.push("<p>None listed.</p>");
       }
@@ -1187,7 +1130,7 @@
       a.download = fname;
       document.body.appendChild(a);
       a.click();
-      setTimeout(function() {
+      setTimeout(() => {
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
       }, 0);
@@ -1221,7 +1164,6 @@
     //  INIT
     // ======================
     window.addEventListener("DOMContentLoaded", function() {
-      // Buttons
       document.getElementById("signinBtn").addEventListener("click", signInManual);
       document.getElementById("mediaFiles").addEventListener("change", updateMediaList);
       document.getElementById("jobType").addEventListener("change", updateTimeOnSiteVisibility);
@@ -1238,23 +1180,12 @@
         if (eventSelect.value) aiParseSelectedEvent();
       });
 
-      setStatus("Waiting for Google auth…", true);
-      setAiStatus("", true);
-    });
+      setStatus("Waiting for sign-in…", true);
 
-    // Try to auto-sign-in & load events as soon as GSI is ready
-    window.addEventListener("load", function() {
-      try {
-        initAuth();
-        if (tokenClient) {
-          tokenClient.requestAccessToken();
-        } else {
-          setStatus("Google auth client not ready.", false);
-        }
-      } catch (e) {
-        console.error(e);
-        setStatus("Error initialising Google auth.", false);
-      }
+      // Prepare Google auth (but don't auto-sign-in)
+      window.setTimeout(() => {
+        try { initAuth(); } catch (e) {}
+      }, 0);
     });
   </script>
 </body>
