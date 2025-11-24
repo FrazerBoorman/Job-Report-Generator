@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Job Report Generator v0.1</title>
+  <title>Job Report Generator</title>
   <meta name="color-scheme" content="light dark" />
   <!-- Google OAuth client ID -->
   <meta name="google-oauth-client-id"
@@ -48,34 +48,13 @@
       margin: 0 0 6px;
       font-size: 26px;
       letter-spacing: .02em;
-      display:flex;
-      align-items:baseline;
-      gap:8px;
-    }
-    .version-tag {
-      font-size:11px;
-      font-weight:600;
-      color:var(--muted);
-      padding:2px 6px;
-      border-radius:999px;
-      border:1px solid var(--border);
     }
     .muted { color: var(--muted); font-size: 14px; }
-
-    .pill-btn {
-      display:inline-flex;
-      align-items:center;
-      gap:6px;
-      font-size:11px;
-      padding:3px 9px;
-      border-radius:999px;
-      border:1px solid var(--border);
-      color:var(--muted);
-      background:transparent;
-      cursor:pointer;
-      text-decoration:none;
+    .pill {
+      display:inline-flex;align-items:center;gap:6px;
+      font-size:11px;padding:3px 9px;border-radius:999px;
+      border:1px solid var(--border);color:var(--muted);
     }
-
     .grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -173,24 +152,6 @@
     }
 
     .file-list { font-size: 12px; color: var(--muted); margin-top:4px; }
-
-    details.debug-panel summary {
-      cursor:pointer;
-      font-size:12px;
-      color:var(--muted);
-      margin-top:4px;
-    }
-    #debugOutput {
-      margin-top:6px;
-      max-height:200px;
-      overflow:auto;
-      background:var(--panel);
-      border-radius:10px;
-      border:1px solid var(--border);
-      padding:6px;
-      font-size:11px;
-      white-space:pre-wrap;
-    }
   </style>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
@@ -199,18 +160,12 @@
     <div class="card">
       <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px; flex-wrap:wrap;">
         <div>
-          <h1>
-            Job Report Generator
-            <span class="version-tag">v0.1</span>
-          </h1>
+          <h1>Job Report Generator</h1>
           <div class="muted">
-            Sign into Google, pick a job, let AI fill the sections and then polish the whole report.
+            Tap once to sign into Google, load last 14 days of jobs, AI-fills the report, then export to Word / email.
           </div>
         </div>
-        <button class="pill-btn" type="button"
-                onclick="window.location.href='https://frazerboorman.github.io/';">
-          Frazer · AVD Tools
-        </button>
+        <span class="pill">Frazer · AVD Tools</span>
       </div>
 
       <!-- Calendar selection -->
@@ -235,7 +190,7 @@
           </div>
           <div style="align-self:end;">
             <button id="signinBtn" class="primary" type="button">Sign into Google</button>
-            <div class="small-note">One tap. After that, events load &amp; AI can auto-fill.</div>
+            <div class="small-note">One tap. After that, events load & AI runs automatically.</div>
           </div>
         </div>
       </div>
@@ -246,7 +201,7 @@
         <div class="grid">
           <div>
             <label for="employee">Employee</label>
-            <input id="employee" placeholder="Filled from calendar name (e.g. Frazer) if possible" />
+            <input id="employee" placeholder="Derived from calendar ID if possible" />
           </div>
           <div>
             <label for="jobType">Job type</label>
@@ -275,19 +230,19 @@
         <div style="margin-top:10px;">
           <label for="jobDescription">Job description</label>
           <textarea id="jobDescription"
-            placeholder="Summary of what you were supposed to do. AI fills this from the event and tidies it."></textarea>
+            placeholder="Summary of what you were supposed to do. AI fills this from the event."></textarea>
         </div>
 
         <div style="margin-top:10px;">
           <label for="techCheck">Tech check summary</label>
           <textarea id="techCheck"
-            placeholder="TECH CHECK style notes from the event/linked docs. AI will also tidy this on generate."></textarea>
+            placeholder="TECH CHECK style notes from the event/linked docs."></textarea>
           <div id="techLinks" class="small-note"></div>
         </div>
       </div>
 
       <div class="section">
-        <div class="section-title">Step 3 – People &amp; time on site</div>
+        <div class="section-title">Step 3 – People & time on site</div>
         <div class="grid">
           <div>
             <label for="personsMet">Person(s) met</label>
@@ -334,23 +289,23 @@
       </div>
 
       <div class="section">
-        <div class="section-title">Step 4 – Findings &amp; advisories</div>
+        <div class="section-title">Step 4 – Findings & advisories</div>
         <div class="grid">
           <div>
             <label for="findings">Findings</label>
             <textarea id="findings"
-              placeholder="Short, brief sentences describing what you found. AI turns these into a clean paragraph in the report."></textarea>
+              placeholder="Short, brief sentences describing what you found."></textarea>
           </div>
           <div>
             <label for="howLeft">How things have been left</label>
             <textarea id="howLeft"
-              placeholder="Short bullet-style notes. AI turns these into a paragraph in the report."></textarea>
+              placeholder="Short bullet-style notes. These get turned into a paragraph in the report."></textarea>
           </div>
         </div>
         <div style="margin-top:10px;">
           <label for="advisories">Advisories</label>
           <textarea id="advisories"
-            placeholder="Short notes (future improvements, risks). AI turns these into clear sentences/paragraphs."></textarea>
+            placeholder="More short notes (e.g. future improvements, risks). Also turned into proper sentences in the report."></textarea>
         </div>
       </div>
 
@@ -368,7 +323,7 @@
       </div>
 
       <div class="section">
-        <div class="section-title">Step 6 – Generate, check &amp; send</div>
+        <div class="section-title">Step 6 – Generate, check & send</div>
         <div class="btn-row">
           <button id="generateBtn" class="primary" type="button">Generate report</button>
           <button id="viewBtn" type="button">View report</button>
@@ -377,7 +332,7 @@
           <button id="sendBtn" type="button">Send (opens email)</button>
         </div>
         <div class="small-note">
-          “Send” opens your email client addressed to Neil, Mark &amp; David with the report text.
+          “Send” opens your email client addressed to Neil, Mark & David with the report text.
           Attach the Word doc + photos/videos manually.
         </div>
 
@@ -385,14 +340,6 @@
           <label>Report preview</label>
           <div id="reportPreview">No report generated yet.</div>
         </div>
-      </div>
-
-      <!-- DEBUG PANEL -->
-      <div class="section">
-        <details class="debug-panel">
-          <summary>Debug log (errors / API responses)</summary>
-          <pre id="debugOutput">Debug log initialised…</pre>
-        </details>
       </div>
     </div>
   </div>
@@ -413,27 +360,12 @@
     let tokenClient = null;
     let currentEvents = [];
     let lastReportText = "";
-    let lastReportData = null;
-
-    function debugLog(msg, data) {
-      const el = document.getElementById("debugOutput");
-      if (!el) return;
-      const ts = new Date().toISOString();
-      let line = "[" + ts + "] " + msg;
-      if (data !== undefined) {
-        try { line += " " + JSON.stringify(data); }
-        catch { line += " " + String(data); }
-      }
-      el.textContent += "\\n" + line;
-      el.scrollTop = el.scrollHeight;
-    }
 
     function setStatus(msg, ok) {
       const el = document.getElementById("authStatus");
       if (!el) return;
       el.textContent = "Status: " + msg;
       el.style.color = ok === false ? "var(--danger)" : "";
-      debugLog("STATUS: " + msg + (ok === false ? " [ERROR]" : ""));
     }
 
     function setAiStatus(msg, ok) {
@@ -441,24 +373,18 @@
       if (!el) return;
       el.textContent = msg;
       el.style.color = ok === false ? "var(--danger)" : "";
-      if (msg) debugLog("AI: " + msg + (ok === false ? " [ERROR]" : ""));
     }
 
     // ======================
     //  GOOGLE AUTH & EVENTS
     // ======================
     function initAuth() {
-      debugLog("initAuth called");
-      if (!window.google || !google.accounts || !google.accounts.oauth2) {
-        debugLog("Google OAuth2 not available");
-        return;
-      }
+      if (!window.google || !google.accounts || !google.accounts.oauth2) return;
       tokenClient = google.accounts.oauth2.initTokenClient({
         client_id: CLIENT_ID,
         scope: SCOPES,
         prompt: "",
         callback: function(resp) {
-          debugLog("OAuth callback", resp);
           if (resp && resp.access_token) {
             accessToken = resp.access_token;
             setStatus("Signed in. Loading last 14 days…", true);
@@ -471,7 +397,6 @@
     }
 
     function signInManual() {
-      debugLog("Sign-in clicked");
       if (!tokenClient) initAuth();
       if (!tokenClient) {
         setStatus("Google auth not ready.", false);
@@ -494,35 +419,7 @@
       return "";
     }
 
-    async function setEmployeeFromCalendar(calId) {
-      const employeeInput = document.getElementById("employee");
-      if (employeeInput.value) return;
-      if (!accessToken) return;
-
-      try {
-        const url = "https://www.googleapis.com/calendar/v3/calendars/" + encodeURIComponent(calId);
-        const res = await fetch(url, {
-          headers: { "Authorization": "Bearer " + accessToken }
-        });
-        debugLog("Calendar summary status", res.status);
-        if (res.ok) {
-          const data = await res.json();
-          if (data.summary && typeof data.summary === "string") {
-            const name = data.summary.trim();
-            if (name) {
-              employeeInput.value = name;
-              return;
-            }
-          }
-        }
-      } catch (e) {
-        debugLog("Error fetching calendar summary", { error: e.message || String(e) });
-      }
-      deriveEmployeeFromCalendarId(calId);
-    }
-
     async function loadRecentEvents() {
-      debugLog("loadRecentEvents called");
       if (!accessToken) {
         setStatus("No access token yet.", false);
         return;
@@ -530,8 +427,7 @@
 
       const calId = (document.getElementById("calendarId").value || "primary").trim();
 
-      await setEmployeeFromCalendar(calId);
-
+      // Last 14 days (inclusive) up to end of today
       const now = new Date();
       const end = new Date(now);
       end.setHours(23, 59, 59, 999);
@@ -552,67 +448,62 @@
       url.searchParams.set("timeMax", end.toISOString());
       url.searchParams.set("maxResults", "250");
 
-      try {
-        const res = await fetch(url.toString(), {
-          headers: { "Authorization": "Bearer " + accessToken }
-        });
-        debugLog("Calendar events status", res.status);
-        if (!res.ok) {
-          const txt = await res.text().catch(() => "");
-          debugLog("Calendar error body", txt);
-          setStatus("Calendar API error " + res.status, false);
-          return;
-        }
+      const res = await fetch(url.toString(), {
+        headers: { "Authorization": "Bearer " + accessToken }
+      });
 
-        const data = await res.json();
-        const all = data.items || [];
-        const nowRef = new Date();
+      if (!res.ok) {
+        setStatus("Calendar API error " + res.status, false);
+        return;
+      }
 
-        const processed = all
-          .map(ev => ({ ev, startDate: getEventStartDate(ev) }))
-          .filter(obj => obj.startDate && obj.startDate <= nowRef)
-          .sort((a, b) => b.startDate - a.startDate);
+      const data = await res.json();
+      const all = data.items || [];
+      const nowRef = new Date();
 
-        const picked = processed.map(x => x.ev);
-        currentEvents = picked;
+      // Filter to events in this window, sort newest first
+      const processed = all
+        .map(ev => ({ ev, startDate: getEventStartDate(ev) }))
+        .filter(obj => obj.startDate && obj.startDate <= nowRef)
+        .sort((a, b) => b.startDate - a.startDate);
 
-        const sel = document.getElementById("eventSelect");
-        sel.innerHTML = "";
+      const picked = processed.map(x => x.ev);
+      currentEvents = picked;
 
-        if (!picked.length) {
-          const opt = document.createElement("option");
-          opt.value = "";
-          opt.textContent = "No events in the last 14 days.";
-          sel.appendChild(opt);
-          setStatus("No events in the last 14 days.", false);
-          return;
-        }
+      const sel = document.getElementById("eventSelect");
+      sel.innerHTML = "";
 
-        const placeholder = document.createElement("option");
-        placeholder.value = "";
-        placeholder.textContent = "— Select job —";
-        sel.appendChild(placeholder);
+      if (!picked.length) {
+        const opt = document.createElement("option");
+        opt.value = "";
+        opt.textContent = "No events in the last 14 days.";
+        sel.appendChild(opt);
+        setStatus("No events in the last 14 days.", false);
+        return;
+      }
 
-        for (let i = 0; i < picked.length; i++) {
-          const ev = picked[i];
-          const title = ev.summary || "(no title)";
-          const d = extractPrimaryDate(ev);
-          const opt = document.createElement("option");
-          opt.value = String(i);
-          opt.textContent = (d ? (d + " – ") : "") + title;
-          sel.appendChild(opt);
-        }
+      const placeholder = document.createElement("option");
+      placeholder.value = "";
+      placeholder.textContent = "— Select job —";
+      sel.appendChild(placeholder);
 
-        setStatus("Loaded " + picked.length + " events from last 14 days.", true);
-        debugLog("Events loaded", { count: picked.length });
+      for (let i = 0; i < picked.length; i++) {
+        const ev = picked[i];
+        const title = ev.summary || "(no title)";
+        const d = extractPrimaryDate(ev);
+        const opt = document.createElement("option");
+        opt.value = String(i);
+        opt.textContent = (d ? (d + " – ") : "") + title;
+        sel.appendChild(opt);
+      }
 
-        if (picked.length > 0) {
-          sel.selectedIndex = 1;
-          aiParseSelectedEvent();
-        }
-      } catch (e) {
-        debugLog("loadRecentEvents error", { error: e.message || String(e) });
-        setStatus("Error loading events.", false);
+      setStatus("Loaded " + picked.length + " events from last 14 days.", true);
+      deriveEmployeeFromCalendarId(calId);
+
+      // Auto-select newest and AI scalp
+      if (picked.length > 0) {
+        sel.selectedIndex = 1; // first real event
+        aiParseSelectedEvent();
       }
     }
 
@@ -645,23 +536,23 @@
       let lines = [];
       if (summary) lines.push(summary.trim());
       if (description) {
-        const descLines = description.split(/\\r?\\n/);
+        const descLines = description.split(/\r?\n/);
         const trimmed = [];
         for (let i = 0; i < descLines.length; i++) {
           const l = descLines[i].trim();
           if (!l) continue;
-          if (/^\\d{4}-\\d{2}-\\d{2}/.test(l)) continue;
-          if (/^\\d{2}\\/\\d{2}\\/\\d{4}/.test(l)) continue;
+          if (/^\d{4}-\d{2}-\d{2}/.test(l)) continue;
+          if (/^\d{2}\/\d{2}\/\d{4}/.test(l)) continue;
           trimmed.push(l);
         }
         for (let j = 0; j < trimmed.length && j < 5; j++) lines.push(trimmed[j]);
       }
-      return lines.join("\\n");
+      return lines.join("\n");
     }
 
     function extractTechCheck(description) {
       if (!description) return { summary: "", links: [] };
-      const lines = description.split(/\\r?\\n/);
+      const lines = description.split(/\r?\n/);
       const techLines = [];
       const links = [];
       for (let i = 0; i < lines.length; i++) {
@@ -670,7 +561,7 @@
         if (lower.includes("tech check") || lower.includes("techcheck")) {
           techLines.push(line.trim());
         }
-        const urlMatch = line.match(/https?:\\/\\/\\S+/g);
+        const urlMatch = line.match(/https?:\/\/\S+/g);
         if (urlMatch) {
           for (let k = 0; k < urlMatch.length; k++) {
             const u = urlMatch[k];
@@ -681,12 +572,12 @@
           }
         }
       }
-      return { summary: techLines.join("\\n"), links };
+      return { summary: techLines.join("\n"), links };
     }
 
     function extractContacts(description) {
       if (!description) return { persons:"", phone:"", email:"" };
-      const lines = description.split(/\\r?\\n/);
+      const lines = description.split(/\r?\n/);
       const persons = [];
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
@@ -703,8 +594,8 @@
           if (cleaned) persons.push(cleaned);
         }
       }
-      const emailMatch = description.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}/i);
-      const phoneMatch = description.match(/\\b(?:0\\d{9,10}|\\+?\\d[\\d\\s\\-]{7,}\\d)\\b/);
+      const emailMatch = description.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
+      const phoneMatch = description.match(/\b(?:0\d{9,10}|\+?\d[\d\s\-]{7,}\d)\b/);
       return {
         persons: persons.join(", "),
         phone: phoneMatch ? phoneMatch[0] : "",
@@ -728,7 +619,7 @@
       const addrInput = document.getElementById("jobAddress");
       if (!addrInput.value) {
         if (loc) addrInput.value = loc;
-        else if (title) addrInput.value = title;
+        else if (title) addrInput.value = title; // title often includes hall name + town
       }
 
       document.getElementById("jobDescription").value = basicJobDescription(title, desc);
@@ -822,7 +713,28 @@
     }
 
     // ======================
-    //  OPENAI – EVENT SCALP
+    //  TEXT FLUFFING
+    // ======================
+    function expandNotes(raw) {
+      if (!raw) return "";
+      const lines = raw.split(/\r?\n/);
+      const kept = [];
+      for (let i = 0; i < lines.length; i++) {
+        const l = lines[i].trim();
+        if (l) kept.push(l);
+      }
+      if (!kept.length) return "";
+      const sentences = kept.map(line => {
+        let s = line;
+        if (!/[.!?]$/.test(s)) s += ".";
+        s = s.charAt(0).toUpperCase() + s.slice(1);
+        return s;
+      });
+      return sentences.join(" ");
+    }
+
+    // ======================
+    //  OPENAI AI SCALP
     // ======================
     async function aiParseSelectedEvent() {
       const sel = document.getElementById("eventSelect");
@@ -845,45 +757,50 @@
       const attendees = ev.attendees || [];
 
       if (!apiKey) {
-        debugLog("No OpenAI key for scalping; using fallback");
         fallbackFillFromEvent(ev);
         setAiStatus("No OpenAI key set (using basic extraction only).", false);
         return;
       }
 
-      const eventData = { title, description: desc, location: loc, start, end, attendees };
+      const eventData = {
+        title,
+        description: desc,
+        location: loc,
+        start,
+        end,
+        attendees
+      };
 
       const systemPrompt =
-        "You are helping an audio-visual company engineer interpret a Google Calendar job event.\\n" +
-        "You receive a JSON object with title, description, location, start, end, attendees.\\n" +
-        "Your job is to fill as many report fields as possible using ONLY information present in those fields.\\n" +
-        "You must NOT invent any details from thin air.\\n\\n" +
-        "Use ALL of: title, description, and location to find:\\n" +
-        "- job type (TCO, RTF, Meeting / Consultation, Recce, Job / Installation)\\n" +
-        "- job description\\n" +
-        "- tech check notes\\n" +
-        "- persons met\\n" +
-        "- contact phone / email / address\\n" +
-        "- job date\\n" +
-        "- address/site (hall / church name, town, postcode etc)\\n\\n" +
-        "If something is not clearly supported by the event text, leave that field empty.\\n\\n" +
-        "Return STRICT JSON ONLY in this format:\\n" +
-        "{\\n" +
-        '  "jobType": "TCO | RTF | Meeting / Consultation | Recce | Job / Installation | \\"\\\\"",\\n' +
-        '  "jobDescription": "1–3 sentence description of what the visit is about, using only event details",\\n' +
-        '  "techCheckSummary": "summary of any TECH CHECK style notes, or empty string",\\n' +
-        '  "personsMet": "names of people expected / met on site if mentioned, comma separated",\\n' +
-        '  "contactPhone": "phone number if present, else empty string",\\n' +
-        '  "contactEmail": "email address if present, else empty string",\\n' +
-        '  "contactAddress": "postal or site address text, if present (title/description/location), else empty string",\\n' +
-        '  "jobDate": "YYYY-MM-DD if obvious from the event start, else empty string",\\n' +
-        '  "jobAddress": "best guess at site name/address (title and/or location), else empty string"\\n' +
-        "}\\n\\n" +
-        "If you are not sure about any field, return an empty string for that field.\\n" +
+        "You are helping an audio-visual company engineer interpret a Google Calendar job event.\n" +
+        "You receive a JSON object with title, description, location, start, end, attendees.\n" +
+        "Your job is to fill as many report fields as possible using ONLY information present in those fields.\n" +
+        "You must NOT invent any details from thin air.\n\n" +
+        "Use ALL of: title, description, and location to find:\n" +
+        "- job type (TCO, RTF, Meeting / Consultation, Recce, Job / Installation)\n" +
+        "- job description\n" +
+        "- tech check notes\n" +
+        "- persons met\n" +
+        "- contact phone / email / address\n" +
+        "- job date\n" +
+        "- address/site (hall / church name, town, postcode etc)\n\n" +
+        "If something is not clearly supported by the event text, leave that field empty.\n\n" +
+        "Return STRICT JSON ONLY in this format:\n" +
+        "{\n" +
+        '  "jobType": "TCO | RTF | Meeting / Consultation | Recce | Job / Installation | \\"\\\"",\n' +
+        '  "jobDescription": "1–3 sentence description of what the visit is about, using only event details",\n' +
+        '  "techCheckSummary": "summary of any TECH CHECK style notes, or empty string",\n' +
+        '  "personsMet": "names of people expected / met on site if mentioned, comma separated",\n' +
+        '  "contactPhone": "phone number if present, else empty string",\n' +
+        '  "contactEmail": "email address if present, else empty string",\n' +
+        '  "contactAddress": "postal or site address text, if present (title/description/location), else empty string",\n' +
+        '  "jobDate": "YYYY-MM-DD if obvious from the event start, else empty string",\n' +
+        '  "jobAddress": "best guess at site name/address (title and/or location), else empty string"\n' +
+        "}\n\n" +
+        "If you are not sure about any field, return an empty string for that field.\n" +
         "Do NOT include explanations. Only output the JSON object.";
 
       setAiStatus("AI scalping selected event…", true);
-      debugLog("aiParseSelectedEvent calling OpenAI");
 
       try {
         const res = await fetch("https://api.openai.com/v1/responses", {
@@ -901,11 +818,9 @@
           })
         });
 
-        debugLog("OpenAI scalping status", res.status);
-
         if (!res.ok) {
           const txt = await res.text().catch(() => "");
-          debugLog("OpenAI scalping error body", txt);
+          console.error("OpenAI error:", res.status, txt);
           setAiStatus("OpenAI error " + res.status + ". Basic extraction used instead.", false);
           fallbackFillFromEvent(ev);
           return;
@@ -927,12 +842,13 @@
         try {
           parsed = JSON.parse(rawText);
         } catch (e) {
-          debugLog("Failed to parse JSON from OpenAI scalping", rawText);
+          console.error("Failed to parse JSON from OpenAI:", rawText);
           setAiStatus("AI format issue. Basic extraction used instead.", false);
           fallbackFillFromEvent(ev);
           return;
         }
 
+        // Start with fallback, then overlay AI where it gives values
         fallbackFillFromEvent(ev);
 
         const jobTypeSel = document.getElementById("jobType");
@@ -974,191 +890,33 @@
         updateTimeOnSiteVisibility();
         setAiStatus("AI scalped event. Review & tweak as needed.", true);
       } catch (err) {
-        debugLog("aiParseSelectedEvent error", { error: err.message || String(err) });
+        console.error(err);
         setAiStatus("Network error talking to OpenAI. Basic extraction used instead.", false);
         fallbackFillFromEvent(ev);
       }
     }
 
     // ======================
-    //  OPENAI – SECTION POLISH (ONCE, FROM YOUR NOTES)
+    //  REPORT BUILDING
     // ======================
-    async function enhanceNotesWithAI(jobDesc, tech, findingsRaw, howRaw, advRaw) {
-      const fallback = {
-        jobDescriptionText: jobDesc || "",
-        techSummaryText: tech || "",
-        findingsText: findingsRaw || "",
-        howLeftText: howRaw || "",
-        advisoriesText: advRaw || ""
-      };
+    function buildReportHtmlBody() {
+      const employee = document.getElementById("employee").value.trim();
+      const jobType  = document.getElementById("jobType").value;
+      const jobDate  = document.getElementById("jobDate").value;
+      const jobAddr  = document.getElementById("jobAddress").value.trim();
+      const jobDesc  = document.getElementById("jobDescription").value.trim();
+      const tech     = document.getElementById("techCheck").value.trim();
+      const persons  = document.getElementById("personsMet").value.trim();
+      const cPhone   = document.getElementById("contactPhone").value.trim();
+      const cEmail   = document.getElementById("contactEmail").value.trim();
+      const cAddr    = document.getElementById("contactAddress").value.trim();
+      const dur      = document.getElementById("timeDuration").value.trim();
+      const findings = document.getElementById("findings").value.trim();
+      const howRaw   = document.getElementById("howLeft").value.trim();
+      const advRaw   = document.getElementById("advisories").value.trim();
+      const howFull  = expandNotes(howRaw);
+      const advFull  = expandNotes(advRaw);
 
-      if (!jobDesc && !tech && !findingsRaw && !howRaw && !advRaw) return fallback;
-
-      const apiKey = localStorage.getItem(OPENAI_KEY_STORAGE);
-      if (!apiKey) {
-        debugLog("No OpenAI key for notes; returning raw text");
-        return fallback;
-      }
-
-      const payload = {
-        jobDescription: jobDesc || "",
-        techSummary: tech || "",
-        shortFindings: findingsRaw || "",
-        shortHowLeft: howRaw || "",
-        shortAdvisories: advRaw || ""
-      };
-
-      const systemPrompt =
-        "You help turn an AV engineer's rough job report notes into a clean, professional report.\\n" +
-        "You will receive five fields:\\n" +
-        "- jobDescription: a short description of the job / visit\\n" +
-        "- techSummary: any TECH CHECK / technical notes\\n" +
-        "- shortFindings: terse findings notes (bullets or fragments)\\n" +
-        "- shortHowLeft: terse notes on how things have been left\\n" +
-        "- shortAdvisories: terse advisories / next steps\\n\\n" +
-        "For each field:\\n" +
-        "- Rewrite it into a clear, concise paragraph (or two at most) suitable for a report.\\n" +
-        "- Keep technical meaning and intent exactly the same.\\n" +
-        "- Do NOT invent new facts or speculate on anything that is not explicitly implied.\\n" +
-        "- If a field is empty or trivial, return an empty string for that field.\\n\\n" +
-        "Return STRICT JSON ONLY in this format:\\n" +
-        "{\\n" +
-        '  "jobDescription": "polished job description or empty string",\\n' +
-        '  "techSummary": "polished tech summary or empty string",\\n' +
-        '  "findings": "polished findings paragraph or empty string",\\n' +
-        '  "howLeft": "polished how-left paragraph or empty string",\\n' +
-        '  "advisories": "polished advisories paragraph or empty string"\\n' +
-        "}\\n" +
-        "No explanations, just the JSON object.";
-
-      debugLog("enhanceNotesWithAI calling OpenAI");
-
-      try {
-        const res = await fetch("https://api.openai.com/v1/responses", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": "Bearer " + apiKey
-          },
-          body: JSON.stringify({
-            model: OPENAI_MODEL,
-            input: [
-              { role: "system", content: systemPrompt },
-              { role: "user", content: JSON.stringify(payload) }
-            ]
-          })
-        });
-
-        debugLog("OpenAI notes status", res.status);
-
-        if (!res.ok) {
-          const txt = await res.text().catch(() => "");
-          debugLog("OpenAI notes error body", txt);
-          return fallback;
-        }
-
-        const data = await res.json();
-        let rawText = "";
-        if (
-          data.output &&
-          data.output[0] &&
-          data.output[0].content &&
-          data.output[0].content[0] &&
-          data.output[0].content[0].text
-        ) {
-          rawText = data.output[0].content[0].text;
-        }
-
-        let parsed;
-        try {
-          parsed = JSON.parse(rawText);
-        } catch (e) {
-          debugLog("Failed to parse JSON from OpenAI notes", rawText);
-          return fallback;
-        }
-
-        return {
-          jobDescriptionText: parsed.jobDescription || fallback.jobDescriptionText,
-          techSummaryText: parsed.techSummary || fallback.techSummaryText,
-          findingsText: parsed.findings || fallback.findingsText,
-          howLeftText: parsed.howLeft || fallback.howLeftText,
-          advisoriesText: parsed.advisories || fallback.advisoriesText
-        };
-      } catch (e) {
-        debugLog("Notes AI error", { error: e.message || String(e) });
-        return fallback;
-      }
-    }
-
-    // ======================
-    //  OPENAI – WHOLE REPORT POLISH (FORMAT ONLY)
-    // ======================
-    async function polishWholeReportWithAI(reportText) {
-      const apiKey = localStorage.getItem(OPENAI_KEY_STORAGE);
-      if (!apiKey || !reportText) {
-        debugLog("No OpenAI key for whole-report polish or empty text");
-        return reportText;
-      }
-
-      const systemPrompt =
-        "You will be given a complete job report written by an AV engineer, with headings and sections.\\n" +
-        "Rewrite the report so it reads like a polished, professional document, as if it has been tidied up by an experienced writer.\\n\\n" +
-        "Rules:\\n" +
-        "- Keep ALL existing headings and their order (e.g. 'Job Report', 'Site & description', 'Tech check summary').\\n" +
-        "- Do NOT rename the heading 'Tech check summary' – keep the exact wording and casing.\\n" +
-        "- Preserve all factual content exactly. Do NOT add new jobs, dates, times, components, or incidents.\\n" +
-        "- Do NOT remove any points. You may merge or rephrase sentences but must keep every piece of meaning.\\n" +
-        "- You may clean up grammar, punctuation and flow.\\n" +
-        "- Do not add new sections. Do not remove any headings.\\n" +
-        "- Output plain text only with the same headings present.\\n";
-
-      debugLog("polishWholeReportWithAI calling OpenAI");
-
-      try {
-        const res = await fetch("https://api.openai.com/v1/responses", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": "Bearer " + apiKey
-          },
-          body: JSON.stringify({
-            model: OPENAI_MODEL,
-            input: [
-              { role: "system", content: systemPrompt },
-              { role: "user", content: reportText }
-            ]
-          })
-        });
-
-        debugLog("OpenAI whole-report status", res.status);
-
-        if (!res.ok) {
-          const txt = await res.text().catch(() => "");
-          debugLog("OpenAI whole-report error body", txt);
-          return reportText;
-        }
-
-        const data = await res.json();
-        if (
-          data.output &&
-          data.output[0] &&
-          data.output[0].content &&
-          data.output[0].content[0] &&
-          data.output[0].content[0].text
-        ) {
-          return data.output[0].content[0].text;
-        }
-        return reportText;
-      } catch (e) {
-        debugLog("Whole-report polish error", { error: e.message || String(e) });
-        return reportText;
-      }
-    }
-
-    // ======================
-    //  REPORT DATA & BUILDERS
-    // ======================
-    function collectFormData() {
       const mediaInput = document.getElementById("mediaFiles");
       const mediaItems = [];
       if (mediaInput.files) {
@@ -1167,36 +925,6 @@
         }
       }
 
-      return {
-        employee: document.getElementById("employee").value.trim(),
-        jobType: document.getElementById("jobType").value,
-        jobDate: document.getElementById("jobDate").value,
-        jobAddr: document.getElementById("jobAddress").value.trim(),
-        jobDesc: document.getElementById("jobDescription").value.trim(),
-        tech: document.getElementById("techCheck").value.trim(),
-        persons: document.getElementById("personsMet").value.trim(),
-        cPhone: document.getElementById("contactPhone").value.trim(),
-        cEmail: document.getElementById("contactEmail").value.trim(),
-        cAddr: document.getElementById("contactAddress").value.trim(),
-        timeArrived: document.getElementById("timeArrived").value,
-        timeLeft: document.getElementById("timeLeft").value,
-        timeDuration: document.getElementById("timeDuration").value.trim(),
-        findingsRaw: document.getElementById("findings").value.trim(),
-        howLeftRaw: document.getElementById("howLeft").value.trim(),
-        advisoriesRaw: document.getElementById("advisories").value.trim(),
-        mediaItems
-      };
-    }
-
-    function buildReportHtmlBody(data) {
-      const {
-        employee, jobType, jobDate, jobAddr, jobDesc, tech,
-        persons, cPhone, cEmail, cAddr,
-        timeArrived, timeLeft, timeDuration,
-        findingsText, howLeftText, advisoriesText,
-        mediaItems
-      } = data;
-
       const title = "Job Report" +
         (jobType ? " – " + jobType : "") +
         (jobDate ? " – " + jobDate : "");
@@ -1204,7 +932,7 @@
       const header =
         "<h1>" + title + "</h1>" +
         "<table>" +
-          "<tr><th style=\\"width:20%\\">Employee</th><td>" + (employee || "–") + "</td></tr>" +
+          "<tr><th style=\"width:20%\">Employee</th><td>" + (employee || "–") + "</td></tr>" +
           "<tr><th>Job type</th><td>" + (jobType || "–") + "</td></tr>" +
           "<tr><th>Date</th><td>" + (jobDate || "–") + "</td></tr>" +
           "<tr><th>Address / site</th><td>" + (jobAddr || "–") + "</td></tr>" +
@@ -1214,15 +942,15 @@
       const contactBits = [];
       if (cPhone) contactBits.push("Phone: " + cPhone);
       if (cEmail) contactBits.push("Email: " + cEmail);
-      if (cAddr)  contactBits.push("Postal address: " + cAddr.replace(/\\n/g, "; "));
+      if (cAddr)  contactBits.push("Postal address: " + cAddr.replace(/\n/g, "; "));
 
       const sections = [];
 
       sections.push("<h2>Job description</h2>");
-      sections.push("<p>" + (jobDesc ? jobDesc.replace(/\\n/g, "<br>") : "–") + "</p>");
+      sections.push("<p>" + (jobDesc ? jobDesc.replace(/\n/g, "<br>") : "–") + "</p>");
 
       sections.push("<h2>Tech check summary</h2>");
-      sections.push("<p>" + (tech ? tech.replace(/\\n/g, "<br>") : "–") + "</p>");
+      sections.push("<p>" + (tech ? tech.replace(/\n/g, "<br>") : "–") + "</p>");
 
       sections.push("<h2>Contacts</h2>");
       let contactHtml = "<p><b>Person(s) met:</b> " + (persons || "–") + "</p>";
@@ -1230,25 +958,27 @@
       sections.push(contactHtml);
 
       if (jobType === "TCO" || jobType === "RTF") {
+        const arr = document.getElementById("timeArrived").value;
+        const left = document.getElementById("timeLeft").value;
         sections.push("<h2>Time on site</h2>");
         sections.push(
-          "<p><b>Arrived:</b> " + (timeArrived || "–") +
-          "<br><b>Left:</b> " + (timeLeft || "–") +
-          "<br><b>Duration:</b> " + (timeDuration || "–") + "</p>"
+          "<p><b>Arrived:</b> " + (arr || "–") +
+          "<br><b>Left:</b> " + (left || "–") +
+          "<br><b>Duration:</b> " + (dur || "–") + "</p>"
         );
       }
 
       sections.push("<h2>Findings</h2>");
-      sections.push("<p>" + (findingsText || "–") + "</p>");
+      sections.push("<p>" + (findings ? findings.replace(/\n/g, "<br>") : "–") + "</p>");
 
       sections.push("<h2>How things have been left</h2>");
-      sections.push("<p>" + (howLeftText || "–") + "</p>");
+      sections.push("<p>" + (howFull || "–") + "</p>");
 
       sections.push("<h2>Advisories</h2>");
-      sections.push("<p>" + (advisoriesText || "–") + "</p>");
+      sections.push("<p>" + (advFull || "–") + "</p>");
 
       sections.push("<h2>Photos / videos</h2>");
-      if (mediaItems && mediaItems.length) {
+      if (mediaItems.length) {
         sections.push("<ul>" + mediaItems.map(n => "<li>" + n + "</li>").join("") + "</ul>");
       } else {
         sections.push("<p>None listed.</p>");
@@ -1257,8 +987,8 @@
       return header + sections.join("");
     }
 
-    function buildReportDocHtml(data) {
-      const bodyHtml = buildReportHtmlBody(data);
+    function buildReportDocHtml() {
+      const bodyHtml = buildReportHtmlBody();
       const css =
         "<style>" +
         "@page { size: A4; margin: 2cm; }" +
@@ -1272,18 +1002,33 @@
         "ul { margin: 0 0 6pt 18pt; padding: 0; }" +
         "li { margin: 0 0 2pt 0; }" +
         "</style>";
-      return "<!doctype html><html><head><meta charset=\\"utf-8\\"><title>Job Report</title>" +
+      return "<!doctype html><html><head><meta charset=\"utf-8\"><title>Job Report</title>" +
              css + "</head><body>" + bodyHtml + "</body></html>";
     }
 
-    function buildReportText(data) {
-      const {
-        employee, jobType, jobDate, jobAddr, jobDesc, tech,
-        persons, cPhone, cEmail, cAddr,
-        timeArrived, timeLeft, timeDuration,
-        findingsText, howLeftText, advisoriesText,
-        mediaItems
-      } = data;
+    function buildReportText() {
+      const employee = document.getElementById("employee").value.trim();
+      const jobType  = document.getElementById("jobType").value;
+      const jobDate  = document.getElementById("jobDate").value;
+      const jobAddr  = document.getElementById("jobAddress").value.trim();
+      const jobDesc  = document.getElementById("jobDescription").value.trim();
+      const tech     = document.getElementById("techCheck").value.trim();
+      const persons  = document.getElementById("personsMet").value.trim();
+      const cPhone   = document.getElementById("contactPhone").value.trim();
+      const cEmail   = document.getElementById("contactEmail").value.trim();
+      const cAddr    = document.getElementById("contactAddress").value.trim();
+      const dur      = document.getElementById("timeDuration").value.trim();
+      const findings = document.getElementById("findings").value.trim();
+      const howFull  = expandNotes(document.getElementById("howLeft").value.trim());
+      const advFull  = expandNotes(document.getElementById("advisories").value.trim());
+
+      const mediaInput = document.getElementById("mediaFiles");
+      const mediaItems = [];
+      if (mediaInput.files) {
+        for (let i = 0; i < mediaInput.files.length; i++) {
+          mediaItems.push(mediaInput.files[i].name);
+        }
+      }
 
       const lines = [];
       lines.push("Job Report");
@@ -1296,7 +1041,6 @@
       lines.push("Site & description");
       lines.push("------------------");
       lines.push("Address/site: " + (jobAddr || "-"));
-      lines.push("");
       lines.push("Job description:");
       lines.push(jobDesc || "-");
       lines.push("");
@@ -1309,34 +1053,36 @@
       lines.push("Person(s) met: " + (persons || "-"));
       if (cPhone) lines.push("Phone: " + cPhone);
       if (cEmail) lines.push("Email: " + cEmail);
-      if (cAddr)  lines.push("Postal address: " + cAddr.replace(/\\r?\\n/g, "; "));
+      if (cAddr)  lines.push("Postal address: " + cAddr.replace(/\r?\n/g, "; "));
       lines.push("");
 
       if (jobType === "TCO" || jobType === "RTF") {
+        const arr = document.getElementById("timeArrived").value;
+        const left = document.getElementById("timeLeft").value;
         lines.push("Time on site");
         lines.push("------------");
-        lines.push("Arrived: " + (timeArrived || "-"));
-        lines.push("Left: " + (timeLeft || "-"));
-        lines.push("Duration: " + (timeDuration || "-"));
+        lines.push("Arrived: " + (arr || "-"));
+        lines.push("Left: " + (left || "-"));
+        lines.push("Duration: " + (dur || "-"));
         lines.push("");
       }
 
       lines.push("Findings");
       lines.push("--------");
-      lines.push(findingsText || "-");
+      lines.push(findings || "-");
       lines.push("");
       lines.push("How things have been left");
       lines.push("-------------------------");
-      lines.push(howLeftText || "-");
+      lines.push(howFull || "-");
       lines.push("");
       lines.push("Advisories");
       lines.push("----------");
-      lines.push(advisoriesText || "-");
+      lines.push(advFull || "-");
       lines.push("");
 
       lines.push("Photos / videos");
       lines.push("---------------");
-      if (mediaItems && mediaItems.length) {
+      if (mediaItems.length) {
         for (let i = 0; i < mediaItems.length; i++) {
           lines.push("• " + mediaItems[i]);
         }
@@ -1344,88 +1090,37 @@
         lines.push("None listed.");
       }
 
-      return lines.join("\\n");
+      return lines.join("\n");
     }
 
-    // ======================
-    //  REPORT GENERATION
-    // ======================
-    async function generateReport() {
-      const btn = document.getElementById("generateBtn");
-      if (btn) btn.disabled = true;
-      debugLog("generateReport called");
-
-      try {
-        const data = collectFormData();
-
-        // First AI pass: expand / polish your notes ONCE
-        const enhanced = await enhanceNotesWithAI(
-          data.jobDesc,
-          data.tech,
-          data.findingsRaw,
-          data.howLeftRaw,
-          data.advisoriesRaw
-        );
-
-        data.jobDesc        = enhanced.jobDescriptionText;
-        data.tech           = enhanced.techSummaryText;
-        data.findingsText   = enhanced.findingsText;
-        data.howLeftText    = enhanced.howLeftText;
-        data.advisoriesText = enhanced.advisoriesText;
-
-        lastReportData = data;
-
-        // Build HTML preview from polished sections
-        const htmlBody = buildReportHtmlBody(data);
-        const preview = document.getElementById("reportPreview");
-        preview.innerHTML = htmlBody;
-        preview.scrollTop = 0;
-
-        // Build structured plain-text report from these polished sections
-        const baseText = buildReportText(data);
-
-        // Second AI pass: polish the whole report text (format/wording only)
-        const polishedText = await polishWholeReportWithAI(baseText);
-        lastReportText = polishedText || baseText;
-
-        debugLog("generateReport complete");
-      } catch (e) {
-        debugLog("generateReport error", { error: e.message || String(e) });
-      } finally {
-        if (btn) btn.disabled = false;
-      }
+    function generateReport() {
+      const htmlBody = buildReportHtmlBody();
+      const text = buildReportText();
+      lastReportText = text;
+      const preview = document.getElementById("reportPreview");
+      preview.innerHTML = htmlBody;
+      preview.scrollTop = 0;
     }
 
     function viewReport() {
-      if (!lastReportText) {
-        generateReport().then(() => {
-          document.getElementById("reportPreview").scrollIntoView({ behavior: "smooth", block: "start" });
-        });
-      } else {
-        document.getElementById("reportPreview").scrollIntoView({ behavior: "smooth", block: "start" });
-      }
+      if (!lastReportText) generateReport();
+      document.getElementById("reportPreview").scrollIntoView({ behavior: "smooth", block: "start" });
     }
 
     async function copyReportText() {
-      if (!lastReportText) await generateReport();
+      if (!lastReportText) generateReport();
       try {
         await navigator.clipboard.writeText(lastReportText);
         alert("Report text copied to clipboard.");
-        debugLog("Report text copied to clipboard");
       } catch (e) {
-        debugLog("Clipboard copy failed", { error: e.message || String(e) });
         alert("Could not copy automatically. You may need to select and copy from the preview.");
       }
     }
 
     function downloadWordDoc() {
-      if (!lastReportData) {
-        alert("Please generate the report first.");
-        return;
-      }
-      const html = buildReportDocHtml(lastReportData);
-      const jobDate  = lastReportData.jobDate || "";
-      const jobType  = lastReportData.jobType || "job";
+      const html = buildReportDocHtml();
+      const jobDate  = document.getElementById("jobDate").value || "";
+      const jobType  = document.getElementById("jobType").value || "job";
       const safeType = jobType.replace(/[^a-z0-9]+/gi, "_").toLowerCase();
       const fname = "job_report_" + safeType + (jobDate ? "_" + jobDate : "") + ".doc";
       const blob = new Blob([html], { type: "application/msword" });
@@ -1439,17 +1134,13 @@
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
       }, 0);
-      debugLog("Word doc downloaded", { filename: fname });
     }
 
     function sendReportEmail() {
-      if (!lastReportText || !lastReportData) {
-        alert("Please generate the report first.");
-        return;
-      }
-      const jobType  = lastReportData.jobType || "Job";
-      const jobDate  = lastReportData.jobDate || "";
-      const jobAddr  = lastReportData.jobAddr || "";
+      if (!lastReportText) generateReport();
+      const jobType  = document.getElementById("jobType").value || "Job";
+      const jobDate  = document.getElementById("jobDate").value || "";
+      const jobAddr  = document.getElementById("jobAddress").value.trim();
       const subject  = "Job Report – " + jobType +
                        (jobDate ? (" – " + jobDate) : "") +
                        (jobAddr ? (" – " + jobAddr) : "");
@@ -1461,12 +1152,11 @@
 
       const body = encodeURIComponent(
         lastReportText +
-        "\\n\\n(Photos/videos and the Word report are not attached automatically – please attach them manually.)"
+        "\n\n(Photos/videos and the Word report are not attached automatically – please attach them manually.)"
       );
       const mailto = "mailto:" + encodeURIComponent(to) +
                      "?subject=" + encodeURIComponent(subject) +
                      "&body=" + body;
-      debugLog("Opening mailto", { to, subject });
       window.location.href = mailto;
     }
 
@@ -1491,10 +1181,10 @@
       });
 
       setStatus("Waiting for sign-in…", true);
-      debugLog("Page loaded, initialising auth soon…");
 
-      setTimeout(() => {
-        try { initAuth(); } catch (e) { debugLog("initAuth threw", e); }
+      // Prepare Google auth (but don't auto-sign-in)
+      window.setTimeout(() => {
+        try { initAuth(); } catch (e) {}
       }, 0);
     });
   </script>
