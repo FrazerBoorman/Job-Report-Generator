@@ -230,10 +230,10 @@
         <div>
           <h1>
             Job Report Generator
-            <span class="version">v0.8</span>
+            <span class="version">v0.9</span>
           </h1>
           <div class="muted">
-            Tap once to sign into Google, load last 14 days of jobs, AI-fills the report, then export to Word / email.
+            Tap once to sign into Google, load last 14 days of jobs, AI-fills and tidies the report, then export to Word / email.
           </div>
         </div>
         <a href="../index.html" class="pill">Frazer · AVD Tools</a>
@@ -293,7 +293,7 @@
         <div style="margin-top:10px;">
           <label for="jobDescription">Job description</label>
           <textarea id="jobDescription"
-            placeholder="Summary of what you were supposed to do. AI fills this from the event and tidies your notes."></textarea>
+            placeholder="Very rough summary is fine – AI will tidy this into a clean paragraph."></textarea>
         </div>
 
         <div style="margin-top:10px;">
@@ -357,18 +357,18 @@
           <div>
             <label for="findings">Findings</label>
             <textarea id="findings"
-              placeholder="Short, brief sentences describing what you found. AI tidies this into proper sentences."></textarea>
+              placeholder="Short, rough sentences describing what you found – AI will tidy into a paragraph."></textarea>
           </div>
           <div>
             <label for="howLeft">How things have been left</label>
             <textarea id="howLeft"
-              placeholder="Short bullet-style notes. These get turned into a paragraph in the report."></textarea>
+              placeholder="Quick bullet-style notes (one per line) – AI will turn this into a neat paragraph."></textarea>
           </div>
         </div>
         <div style="margin-top:10px;">
           <label for="advisories">Advisories</label>
           <textarea id="advisories"
-            placeholder="More short notes (e.g. future improvements, risks). Also turned into proper sentences in the report."></textarea>
+            placeholder="Future improvements / risks – again, just rough bullets, AI will tidy."></textarea>
         </div>
       </div>
 
@@ -834,10 +834,15 @@
     }
 
     // ======================
-    //  TEXT FLUFFING
+    //  TEXT FLUFFING (non-AI fallback)
     // ======================
     function expandNotes(raw) {
       if (!raw) return "";
+      // If it's already a single paragraph (no line breaks), leave it alone
+      if (!raw.includes("\n")) {
+        return raw.trim();
+      }
+      // Multi-line -> treat as bullet-style notes
       const lines = raw.split(/\r?\n/);
       const kept = [];
       for (let i = 0; i < lines.length; i++) {
@@ -1032,15 +1037,19 @@
 
       const jobDescription = document.getElementById("jobDescription").value.trim();
       const findings = document.getElementById("findings").value.trim();
+      const howLeft = document.getElementById("howLeft").value.trim();
+      const advisories = document.getElementById("advisories").value.trim();
 
-      if (!jobDescription && !findings) {
+      if (!jobDescription && !findings && !howLeft && !advisories) {
         logDebug("improveReportFieldsWithAI: nothing to improve.");
         return;
       }
 
       const payload = {
         jobDescription,
-        findings
+        findings,
+        howLeft,
+        advisories
       };
 
       const systemPrompt = `
@@ -1049,7 +1058,9 @@ You help an audio-visual engineer polish short internal job report notes into cl
 You receive this JSON:
 {
   "jobDescription": "engineer’s rough text about what the visit was for",
-  "findings": "short bullet-style or choppy notes about what was found on site"
+  "findings": "short bullet-style or choppy notes about what was found on site",
+  "howLeft": "notes on how the system was left at the end of the visit",
+  "advisories": "notes on future improvements, risks, or recommendations"
 }
 
 Rules:
@@ -1057,11 +1068,14 @@ Rules:
 - Only rewrite and lightly clarify what is already there.
 - Keep it factual and engineer-facing, not marketing-speak.
 - Short, tight paragraphs. No waffle.
+- Return each field as a single paragraph with NO line breaks (no "\\n" inside the strings).
 
 Return STRICT JSON ONLY in this format:
 {
-  "jobDescription": "rewritten job description",
-  "findings": "rewritten findings paragraph"
+  "jobDescription": "rewritten job description paragraph",
+  "findings": "rewritten findings paragraph",
+  "howLeft": "rewritten how-things-were-left paragraph",
+  "advisories": "rewritten advisories paragraph"
 }
 `;
 
@@ -1114,6 +1128,12 @@ Return STRICT JSON ONLY in this format:
       }
       if (parsed.findings) {
         document.getElementById("findings").value = parsed.findings;
+      }
+      if (parsed.howLeft) {
+        document.getElementById("howLeft").value = parsed.howLeft;
+      }
+      if (parsed.advisories) {
+        document.getElementById("advisories").value = parsed.advisories;
       }
 
       setAiStatus("Report text improved. Generating preview…", true);
