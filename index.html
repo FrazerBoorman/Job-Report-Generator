@@ -48,12 +48,35 @@
       margin: 0 0 6px;
       font-size: 26px;
       letter-spacing: .02em;
+      display:flex;
+      align-items:baseline;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+    .version {
+      font-size:11px;
+      padding:2px 8px;
+      border-radius:999px;
+      border:1px solid var(--border);
+      color:var(--muted);
     }
     .muted { color: var(--muted); font-size: 14px; }
     .pill {
-      display:inline-flex;align-items:center;gap:6px;
-      font-size:11px;padding:3px 9px;border-radius:999px;
-      border:1px solid var(--border);color:var(--muted);
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      font-size:11px;
+      padding:3px 9px;
+      border-radius:999px;
+      border:1px solid var(--border);
+      color:var(--muted);
+      text-decoration:none;
+      cursor:pointer;
+    }
+    .pill:hover {
+      border-color:var(--accent);
+      color:var(--accent);
+      background:var(--accent-soft);
     }
     .grid {
       display: grid;
@@ -152,6 +175,30 @@
     }
 
     .file-list { font-size: 12px; color: var(--muted); margin-top:4px; }
+
+    /* API key + debug panels */
+    details.api, details.debug {
+      margin-top:10px;
+      border-radius:12px;
+      border:1px dashed var(--border);
+      padding:6px 10px 10px;
+      background:rgba(15,23,42,0.4);
+      font-size:11px;
+    }
+    @media (prefers-color-scheme: light) {
+      details.api, details.debug { background:#f3f4f6; }
+    }
+    details.api summary,
+    details.debug summary {
+      cursor:pointer;
+      font-size:12px;
+      color:var(--muted);
+    }
+    details.debug pre {
+      white-space:pre-wrap;
+      font-size:11px;
+      margin-top:4px;
+    }
   </style>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
@@ -160,12 +207,15 @@
     <div class="card">
       <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px; flex-wrap:wrap;">
         <div>
-          <h1>Job Report Generator</h1>
+          <h1>
+            Job Report Generator
+            <span class="version">v0.7</span>
+          </h1>
           <div class="muted">
             Tap once to sign into Google, load last 14 days of jobs, AI-fills the report, then export to Word / email.
           </div>
         </div>
-        <span class="pill">Frazer · AVD Tools</span>
+        <a href="https://frazerboorman.github.io/" class="pill">Frazer · AVD TOOLS</a>
       </div>
 
       <!-- Calendar selection -->
@@ -190,7 +240,7 @@
           </div>
           <div style="align-self:end;">
             <button id="signinBtn" class="primary" type="button">Sign into Google</button>
-            <div class="small-note">One tap. After that, events load & AI runs automatically.</div>
+            <div class="small-note">One tap. After that, events load &amp; AI runs automatically.</div>
           </div>
         </div>
       </div>
@@ -242,7 +292,7 @@
       </div>
 
       <div class="section">
-        <div class="section-title">Step 3 – People & time on site</div>
+        <div class="section-title">Step 3 – People &amp; time on site</div>
         <div class="grid">
           <div>
             <label for="personsMet">Person(s) met</label>
@@ -289,7 +339,7 @@
       </div>
 
       <div class="section">
-        <div class="section-title">Step 4 – Findings & advisories</div>
+        <div class="section-title">Step 4 – Findings &amp; advisories</div>
         <div class="grid">
           <div>
             <label for="findings">Findings</label>
@@ -323,7 +373,7 @@
       </div>
 
       <div class="section">
-        <div class="section-title">Step 6 – Generate, check & send</div>
+        <div class="section-title">Step 6 – Generate, check &amp; send</div>
         <div class="btn-row">
           <button id="generateBtn" class="primary" type="button">Generate report</button>
           <button id="viewBtn" type="button">View report</button>
@@ -332,7 +382,7 @@
           <button id="sendBtn" type="button">Send (opens email)</button>
         </div>
         <div class="small-note">
-          “Send” opens your email client addressed to Neil, Mark & David with the report text.
+          “Send” opens your email client addressed to Neil, Mark &amp; David with the report text.
           Attach the Word doc + photos/videos manually.
         </div>
 
@@ -341,6 +391,26 @@
           <div id="reportPreview">No report generated yet.</div>
         </div>
       </div>
+
+      <!-- API KEY PANEL (collapsed by default) -->
+      <details class="api">
+        <summary>API key (OpenAI) – hidden by default</summary>
+        <div class="small-note" style="margin-top:4px;">
+          Stored locally in <code>localStorage['avd_job_report_openai_key']</code>. Never sent anywhere except OpenAI’s API.
+        </div>
+        <div style="display:flex;gap:6px;align-items:center;margin-top:6px;flex-wrap:wrap;">
+          <input id="apiKeyInput" type="password" placeholder="sk-..." style="flex:1 1 220px;max-width:380px;">
+          <button type="button" id="saveApiKeyBtn">Save</button>
+          <button type="button" id="clearApiKeyBtn">Forget</button>
+        </div>
+        <div id="apiKeyStatus" class="small-note"></div>
+      </details>
+
+      <!-- DEBUG PANEL (collapsed by default) -->
+      <details class="debug">
+        <summary>Debug panel</summary>
+        <pre id="debugLog">(empty)</pre>
+      </details>
     </div>
   </div>
 
@@ -351,21 +421,34 @@
     const CLIENT_ID = "105230737516-l8tlnck4idde83pjetrotobpt8borvts.apps.googleusercontent.com";
     const SCOPES   = "https://www.googleapis.com/auth/calendar.readonly";
     const OPENAI_MODEL = "gpt-4.1-mini";
-    const OPENAI_KEY_STORAGE = "avd_job_report_openai_key"; // set via console once
-
-    // To set your OpenAI key once, open browser devtools console on this page and run:
-    // localStorage.setItem('avd_job_report_openai_key', 'sk-REPLACE_WITH_YOUR_KEY');
+    const OPENAI_KEY_STORAGE = "avd_job_report_openai_key";
 
     let accessToken = null;
     let tokenClient = null;
     let currentEvents = [];
     let lastReportText = "";
 
+    // ======================
+    //  DEBUG LOGGING
+    // ======================
+    function logDebug(msg) {
+      try {
+        const el = document.getElementById("debugLog");
+        if (!el) return;
+        const ts = new Date().toISOString().replace("T"," ").slice(0,19);
+        el.textContent += "[" + ts + "] " + msg + "\\n";
+        el.scrollTop = el.scrollHeight;
+      } catch (e) {
+        if (console && console.warn) console.warn("debugLog error", e);
+      }
+    }
+
     function setStatus(msg, ok) {
       const el = document.getElementById("authStatus");
       if (!el) return;
       el.textContent = "Status: " + msg;
       el.style.color = ok === false ? "var(--danger)" : "";
+      logDebug("STATUS: " + msg);
     }
 
     function setAiStatus(msg, ok) {
@@ -373,13 +456,17 @@
       if (!el) return;
       el.textContent = msg;
       el.style.color = ok === false ? "var(--danger)" : "";
+      if (msg) logDebug("AI: " + msg);
     }
 
     // ======================
     //  GOOGLE AUTH & EVENTS
     // ======================
     function initAuth() {
-      if (!window.google || !google.accounts || !google.accounts.oauth2) return;
+      if (!window.google || !google.accounts || !google.accounts.oauth2) {
+        logDebug("Google auth library not ready yet.");
+        return;
+      }
       tokenClient = google.accounts.oauth2.initTokenClient({
         client_id: CLIENT_ID,
         scope: SCOPES,
@@ -394,6 +481,7 @@
           }
         }
       });
+      logDebug("Google tokenClient initialised.");
     }
 
     function signInManual() {
@@ -402,6 +490,7 @@
         setStatus("Google auth not ready.", false);
         return;
       }
+      logDebug("Requesting Google access token…");
       tokenClient.requestAccessToken();
     }
 
@@ -447,6 +536,8 @@
       url.searchParams.set("timeMin", start.toISOString());
       url.searchParams.set("timeMax", end.toISOString());
       url.searchParams.set("maxResults", "250");
+
+      logDebug("Fetching events: " + url.toString());
 
       const res = await fetch(url.toString(), {
         headers: { "Authorization": "Bearer " + accessToken }
@@ -498,6 +589,8 @@
       }
 
       setStatus("Loaded " + picked.length + " events from last 14 days.", true);
+      logDebug("Loaded " + picked.length + " events.");
+
       deriveEmployeeFromCalendarId(calId);
 
       // Auto-select newest and AI scalp
@@ -516,6 +609,7 @@
       if (parts.length >= 2) {
         const name = parts.map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(" ");
         employeeInput.value = name;
+        logDebug("Derived employee from calendar ID: " + name);
       }
     }
 
@@ -536,23 +630,23 @@
       let lines = [];
       if (summary) lines.push(summary.trim());
       if (description) {
-        const descLines = description.split(/\r?\n/);
+        const descLines = description.split(/\\r?\\n/);
         const trimmed = [];
         for (let i = 0; i < descLines.length; i++) {
           const l = descLines[i].trim();
           if (!l) continue;
-          if (/^\d{4}-\d{2}-\d{2}/.test(l)) continue;
-          if (/^\d{2}\/\d{2}\/\d{4}/.test(l)) continue;
+          if (/^\\d{4}-\\d{2}-\\d{2}/.test(l)) continue;
+          if (/^\\d{2}\\/\\d{2}\\/\\d{4}/.test(l)) continue;
           trimmed.push(l);
         }
         for (let j = 0; j < trimmed.length && j < 5; j++) lines.push(trimmed[j]);
       }
-      return lines.join("\n");
+      return lines.join("\\n");
     }
 
     function extractTechCheck(description) {
       if (!description) return { summary: "", links: [] };
-      const lines = description.split(/\r?\n/);
+      const lines = description.split(/\\r?\\n/);
       const techLines = [];
       const links = [];
       for (let i = 0; i < lines.length; i++) {
@@ -561,7 +655,7 @@
         if (lower.includes("tech check") || lower.includes("techcheck")) {
           techLines.push(line.trim());
         }
-        const urlMatch = line.match(/https?:\/\/\S+/g);
+        const urlMatch = line.match(/https?:\\/\\/\\S+/g);
         if (urlMatch) {
           for (let k = 0; k < urlMatch.length; k++) {
             const u = urlMatch[k];
@@ -572,12 +666,12 @@
           }
         }
       }
-      return { summary: techLines.join("\n"), links };
+      return { summary: techLines.join("\\n"), links };
     }
 
     function extractContacts(description) {
       if (!description) return { persons:"", phone:"", email:"" };
-      const lines = description.split(/\r?\n/);
+      const lines = description.split(/\\r?\\n/);
       const persons = [];
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
@@ -594,8 +688,8 @@
           if (cleaned) persons.push(cleaned);
         }
       }
-      const emailMatch = description.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
-      const phoneMatch = description.match(/\b(?:0\d{9,10}|\+?\d[\d\s\-]{7,}\d)\b/);
+      const emailMatch = description.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}/i);
+      const phoneMatch = description.match(/\\b(?:0\\d{9,10}|\\+?\\d[\\d\\s\\-]{7,}\\d)\\b/);
       return {
         persons: persons.join(", "),
         phone: phoneMatch ? phoneMatch[0] : "",
@@ -619,7 +713,7 @@
       const addrInput = document.getElementById("jobAddress");
       if (!addrInput.value) {
         if (loc) addrInput.value = loc;
-        else if (title) addrInput.value = title; // title often includes hall name + town
+        else if (title) addrInput.value = title;
       }
 
       document.getElementById("jobDescription").value = basicJobDescription(title, desc);
@@ -649,6 +743,8 @@
       if (contacts.email && !document.getElementById("contactEmail").value) {
         document.getElementById("contactEmail").value = contacts.email;
       }
+
+      logDebug("Fallback fill from event applied.");
     }
 
     // ======================
@@ -717,7 +813,7 @@
     // ======================
     function expandNotes(raw) {
       if (!raw) return "";
-      const lines = raw.split(/\r?\n/);
+      const lines = raw.split(/\\r?\\n/);
       const kept = [];
       for (let i = 0; i < lines.length; i++) {
         const l = lines[i].trim();
@@ -757,6 +853,7 @@
       const attendees = ev.attendees || [];
 
       if (!apiKey) {
+        logDebug("No OpenAI key in storage; using fallback extraction.");
         fallbackFillFromEvent(ev);
         setAiStatus("No OpenAI key set (using basic extraction only).", false);
         return;
@@ -772,35 +869,36 @@
       };
 
       const systemPrompt =
-        "You are helping an audio-visual company engineer interpret a Google Calendar job event.\n" +
-        "You receive a JSON object with title, description, location, start, end, attendees.\n" +
-        "Your job is to fill as many report fields as possible using ONLY information present in those fields.\n" +
-        "You must NOT invent any details from thin air.\n\n" +
-        "Use ALL of: title, description, and location to find:\n" +
-        "- job type (TCO, RTF, Meeting / Consultation, Recce, Job / Installation)\n" +
-        "- job description\n" +
-        "- tech check notes\n" +
-        "- persons met\n" +
-        "- contact phone / email / address\n" +
-        "- job date\n" +
-        "- address/site (hall / church name, town, postcode etc)\n\n" +
-        "If something is not clearly supported by the event text, leave that field empty.\n\n" +
-        "Return STRICT JSON ONLY in this format:\n" +
-        "{\n" +
-        '  "jobType": "TCO | RTF | Meeting / Consultation | Recce | Job / Installation | \\"\\\"",\n' +
-        '  "jobDescription": "1–3 sentence description of what the visit is about, using only event details",\n' +
-        '  "techCheckSummary": "summary of any TECH CHECK style notes, or empty string",\n' +
-        '  "personsMet": "names of people expected / met on site if mentioned, comma separated",\n' +
-        '  "contactPhone": "phone number if present, else empty string",\n' +
-        '  "contactEmail": "email address if present, else empty string",\n' +
-        '  "contactAddress": "postal or site address text, if present (title/description/location), else empty string",\n' +
-        '  "jobDate": "YYYY-MM-DD if obvious from the event start, else empty string",\n' +
-        '  "jobAddress": "best guess at site name/address (title and/or location), else empty string"\n' +
-        "}\n\n" +
-        "If you are not sure about any field, return an empty string for that field.\n" +
+        "You are helping an audio-visual company engineer interpret a Google Calendar job event.\\n" +
+        "You receive a JSON object with title, description, location, start, end, attendees.\\n" +
+        "Your job is to fill as many report fields as possible using ONLY information present in those fields.\\n" +
+        "You must NOT invent any details from thin air.\\n\\n" +
+        "Use ALL of: title, description, and location to find:\\n" +
+        "- job type (TCO, RTF, Meeting / Consultation, Recce, Job / Installation)\\n" +
+        "- job description\\n" +
+        "- tech check notes\\n" +
+        "- persons met\\n" +
+        "- contact phone / email / address\\n" +
+        "- job date\\n" +
+        "- address/site (hall / church name, town, postcode etc)\\n\\n" +
+        "If something is not clearly supported by the event text, leave that field empty.\\n\\n" +
+        "Return STRICT JSON ONLY in this format:\\n" +
+        "{\\n" +
+        '  \\"jobType\\": \\"TCO | RTF | Meeting / Consultation | Recce | Job / Installation | \\\\\\"\\\\\\"\\",\\n' +
+        '  \\"jobDescription\\": \\"1–3 sentence description of what the visit is about, using only event details\\",\\n' +
+        '  \\"techCheckSummary\\": \\"summary of any TECH CHECK style notes, or empty string\\",\\n' +
+        '  \\"personsMet\\": \\"names of people expected / met on site if mentioned, comma separated\\",\\n' +
+        '  \\"contactPhone\\": \\"phone number if present, else empty string\\",\\n' +
+        '  \\"contactEmail\\": \\"email address if present, else empty string\\",\\n' +
+        '  \\"contactAddress\\": \\"postal or site address text, if present (title/description/location), else empty string\\",\\n' +
+        '  \\"jobDate\\": \\"YYYY-MM-DD if obvious from the event start, else empty string\\",\\n' +
+        '  \\"jobAddress\\": \\"best guess at site name/address (title and/or location), else empty string\\"\\n' +
+        "}\\n\\n" +
+        "If you are not sure about any field, return an empty string for that field.\\n" +
         "Do NOT include explanations. Only output the JSON object.";
 
       setAiStatus("AI scalping selected event…", true);
+      logDebug("Sending event to OpenAI for scalping…");
 
       try {
         const res = await fetch("https://api.openai.com/v1/responses", {
@@ -821,6 +919,7 @@
         if (!res.ok) {
           const txt = await res.text().catch(() => "");
           console.error("OpenAI error:", res.status, txt);
+          logDebug("OpenAI error " + res.status + ": " + txt);
           setAiStatus("OpenAI error " + res.status + ". Basic extraction used instead.", false);
           fallbackFillFromEvent(ev);
           return;
@@ -843,6 +942,7 @@
           parsed = JSON.parse(rawText);
         } catch (e) {
           console.error("Failed to parse JSON from OpenAI:", rawText);
+          logDebug("Failed to parse AI JSON: " + rawText);
           setAiStatus("AI format issue. Basic extraction used instead.", false);
           fallbackFillFromEvent(ev);
           return;
@@ -889,8 +989,10 @@
 
         updateTimeOnSiteVisibility();
         setAiStatus("AI scalped event. Review & tweak as needed.", true);
+        logDebug("AI scalping complete.");
       } catch (err) {
         console.error(err);
+        logDebug("Network error talking to OpenAI: " + (err && err.message));
         setAiStatus("Network error talking to OpenAI. Basic extraction used instead.", false);
         fallbackFillFromEvent(ev);
       }
@@ -932,7 +1034,7 @@
       const header =
         "<h1>" + title + "</h1>" +
         "<table>" +
-          "<tr><th style=\"width:20%\">Employee</th><td>" + (employee || "–") + "</td></tr>" +
+          "<tr><th style=\\"width:20%\\">Employee</th><td>" + (employee || "–") + "</td></tr>" +
           "<tr><th>Job type</th><td>" + (jobType || "–") + "</td></tr>" +
           "<tr><th>Date</th><td>" + (jobDate || "–") + "</td></tr>" +
           "<tr><th>Address / site</th><td>" + (jobAddr || "–") + "</td></tr>" +
@@ -942,15 +1044,15 @@
       const contactBits = [];
       if (cPhone) contactBits.push("Phone: " + cPhone);
       if (cEmail) contactBits.push("Email: " + cEmail);
-      if (cAddr)  contactBits.push("Postal address: " + cAddr.replace(/\n/g, "; "));
+      if (cAddr)  contactBits.push("Postal address: " + cAddr.replace(/\\n/g, "; "));
 
       const sections = [];
 
       sections.push("<h2>Job description</h2>");
-      sections.push("<p>" + (jobDesc ? jobDesc.replace(/\n/g, "<br>") : "–") + "</p>");
+      sections.push("<p>" + (jobDesc ? jobDesc.replace(/\\n/g, "<br>") : "–") + "</p>");
 
       sections.push("<h2>Tech check summary</h2>");
-      sections.push("<p>" + (tech ? tech.replace(/\n/g, "<br>") : "–") + "</p>");
+      sections.push("<p>" + (tech ? tech.replace(/\\n/g, "<br>") : "–") + "</p>");
 
       sections.push("<h2>Contacts</h2>");
       let contactHtml = "<p><b>Person(s) met:</b> " + (persons || "–") + "</p>";
@@ -969,7 +1071,7 @@
       }
 
       sections.push("<h2>Findings</h2>");
-      sections.push("<p>" + (findings ? findings.replace(/\n/g, "<br>") : "–") + "</p>");
+      sections.push("<p>" + (findings ? findings.replace(/\\n/g, "<br>") : "–") + "</p>");
 
       sections.push("<h2>How things have been left</h2>");
       sections.push("<p>" + (howFull || "–") + "</p>");
@@ -1002,7 +1104,7 @@
         "ul { margin: 0 0 6pt 18pt; padding: 0; }" +
         "li { margin: 0 0 2pt 0; }" +
         "</style>";
-      return "<!doctype html><html><head><meta charset=\"utf-8\"><title>Job Report</title>" +
+      return "<!doctype html><html><head><meta charset=\\"utf-8\\"><title>Job Report</title>" +
              css + "</head><body>" + bodyHtml + "</body></html>";
     }
 
@@ -1053,7 +1155,7 @@
       lines.push("Person(s) met: " + (persons || "-"));
       if (cPhone) lines.push("Phone: " + cPhone);
       if (cEmail) lines.push("Email: " + cEmail);
-      if (cAddr)  lines.push("Postal address: " + cAddr.replace(/\r?\n/g, "; "));
+      if (cAddr)  lines.push("Postal address: " + cAddr.replace(/\\r?\\n/g, "; "));
       lines.push("");
 
       if (jobType === "TCO" || jobType === "RTF") {
@@ -1090,7 +1192,7 @@
         lines.push("None listed.");
       }
 
-      return lines.join("\n");
+      return lines.join("\\n");
     }
 
     function generateReport() {
@@ -1100,6 +1202,7 @@
       const preview = document.getElementById("reportPreview");
       preview.innerHTML = htmlBody;
       preview.scrollTop = 0;
+      logDebug("Report generated.");
     }
 
     function viewReport() {
@@ -1134,6 +1237,7 @@
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
       }, 0);
+      logDebug("Word doc downloaded: " + fname);
     }
 
     function sendReportEmail() {
@@ -1152,12 +1256,43 @@
 
       const body = encodeURIComponent(
         lastReportText +
-        "\n\n(Photos/videos and the Word report are not attached automatically – please attach them manually.)"
+        "\\n\\n(Photos/videos and the Word report are not attached automatically – please attach them manually.)"
       );
       const mailto = "mailto:" + encodeURIComponent(to) +
                      "?subject=" + encodeURIComponent(subject) +
                      "&body=" + body;
       window.location.href = mailto;
+      logDebug("Mailto triggered.");
+    }
+
+    // ======================
+    //  API KEY PANEL LOGIC
+    // ======================
+    function refreshApiKeyStatus() {
+      const el = document.getElementById("apiKeyStatus");
+      if (!el) return;
+      const key = localStorage.getItem(OPENAI_KEY_STORAGE);
+      el.textContent = key ? "API key is stored in this browser." : "No API key stored yet.";
+    }
+
+    function handleSaveApiKey() {
+      const input = document.getElementById("apiKeyInput");
+      if (!input) return;
+      const v = (input.value || "").trim();
+      if (!v) {
+        alert("Enter a key first.");
+        return;
+      }
+      localStorage.setItem(OPENAI_KEY_STORAGE, v);
+      input.value = "";
+      refreshApiKeyStatus();
+      logDebug("OpenAI key saved to localStorage.");
+    }
+
+    function handleClearApiKey() {
+      localStorage.removeItem(OPENAI_KEY_STORAGE);
+      refreshApiKeyStatus();
+      logDebug("OpenAI key cleared from localStorage.");
     }
 
     // ======================
@@ -1180,12 +1315,21 @@
         if (eventSelect.value) aiParseSelectedEvent();
       });
 
+      // API key handlers
+      const saveBtn = document.getElementById("saveApiKeyBtn");
+      const clearBtn = document.getElementById("clearApiKeyBtn");
+      if (saveBtn) saveBtn.addEventListener("click", handleSaveApiKey);
+      if (clearBtn) clearBtn.addEventListener("click", handleClearApiKey);
+      refreshApiKeyStatus();
+
       setStatus("Waiting for sign-in…", true);
 
       // Prepare Google auth (but don't auto-sign-in)
       window.setTimeout(() => {
-        try { initAuth(); } catch (e) {}
+        try { initAuth(); } catch (e) { logDebug("initAuth error: " + e.message); }
       }, 0);
+
+      logDebug("Job Report Generator v0.7 DOM loaded.");
     });
   </script>
 </body>
