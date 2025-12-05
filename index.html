@@ -1363,7 +1363,7 @@ Return STRICT JSON ONLY in this format:
     }
 
     // ======================
-    //  PDF GENERATION (A4 PORTRAIT, STRUCTURED)
+    //  PDF GENERATION (A4 PORTRAIT, STRUCTURED, WITH EXTRA SPACING)
     // ======================
     async function generatePdfAndOpen() {
       // Make sure report fields (and AI polish) are up to date
@@ -1438,7 +1438,8 @@ Return STRICT JSON ONLY in this format:
         const text = bodyText && bodyText.trim() ? bodyText.trim() : "-";
         const bodyLines = doc.splitTextToSize(text, contentWidth);
         const estimateLines = 2 + bodyLines.length;
-        ensurePageSpace(estimateLines);
+        // Slightly more conservative: +1 line to avoid crowding previous block
+        ensurePageSpace(estimateLines + 1);
 
         doc.setFont("helvetica", "bold");
         doc.setFontSize(13);
@@ -1472,7 +1473,8 @@ Return STRICT JSON ONLY in this format:
         doc.text(titleLines[i], marginLeft, cursorY);
         cursorY += lineHeight;
       }
-      cursorY += lineHeight; // extra gap after title
+      // Extra gap after title to clearly separate from the table
+      cursorY += lineHeight * 2;
 
       // Info table with borders
       const labelColWidth = 40;
@@ -1520,7 +1522,8 @@ Return STRICT JSON ONLY in this format:
       addInfoRow("Address / site:", jobAddr || "");
       addInfoRow("Person(s) met:", persons || "");
 
-      cursorY += lineHeight * 0.5;
+      // Larger gap after table so "Job description" can't sit on top of it
+      cursorY += lineHeight * 2;
 
       // Sections in order: Job description, Tech check summary, Contacts, Time on site (if TCO/RTF), Findings, How left, Advisories
       addSection("Job description", jobDesc);
