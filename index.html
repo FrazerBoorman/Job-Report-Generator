@@ -1363,7 +1363,7 @@ Return STRICT JSON ONLY in this format:
     }
 
     // ======================
-    //  PDF GENERATION (A4 LANDSCAPE, STRUCTURED)
+    //  PDF GENERATION (A4 PORTRAIT, STRUCTURED)
     // ======================
     async function generatePdfAndOpen() {
       // Make sure report fields (and AI polish) are up to date
@@ -1397,17 +1397,17 @@ Return STRICT JSON ONLY in this format:
 
       const { jsPDF } = window.jspdf;
 
-      // A4 landscape: 297mm x 210mm
+      // A4 portrait: 210mm x 297mm
       const doc = new jsPDF({
-        orientation: "landscape",
+        orientation: "portrait",
         unit: "mm",
         format: "a4"
       });
 
       const marginLeft = 15;
-      const marginTop = 15;
-      const pageWidth = 297;
-      const pageHeight = 210;
+      const marginTop = 20;
+      const pageWidth = 210;
+      const pageHeight = 297;
       const contentWidth = pageWidth - marginLeft * 2;
       const lineHeight = 5;
       const bottomLimit = pageHeight - marginTop;
@@ -1422,7 +1422,7 @@ Return STRICT JSON ONLY in this format:
         }
       }
 
-      function addWrappedText(text, x, startY) {
+      function addWrappedText(text, x) {
         const lines = doc.splitTextToSize(text, contentWidth);
         for (let i = 0; i < lines.length; i++) {
           if (cursorY > bottomLimit) {
@@ -1436,7 +1436,8 @@ Return STRICT JSON ONLY in this format:
 
       function addSection(heading, bodyText) {
         const text = bodyText && bodyText.trim() ? bodyText.trim() : "-";
-        const estimateLines = 2 + doc.splitTextToSize(text, contentWidth).length;
+        const bodyLines = doc.splitTextToSize(text, contentWidth);
+        const estimateLines = 2 + bodyLines.length;
         ensurePageSpace(estimateLines);
 
         doc.setFont("helvetica", "bold");
@@ -1446,7 +1447,14 @@ Return STRICT JSON ONLY in this format:
 
         doc.setFont("helvetica", "normal");
         doc.setFontSize(11);
-        addWrappedText(text, marginLeft);
+        for (let i = 0; i < bodyLines.length; i++) {
+          if (cursorY > bottomLimit) {
+            doc.addPage();
+            cursorY = marginTop;
+          }
+          doc.text(bodyLines[i], marginLeft, cursorY);
+          cursorY += lineHeight;
+        }
         cursorY += lineHeight * 0.5;
       }
 
@@ -1459,31 +1467,51 @@ Return STRICT JSON ONLY in this format:
 
       doc.setFont("helvetica", "bold");
       doc.setFontSize(16);
-      addWrappedText(title, marginLeft);
+      const titleLines = doc.splitTextToSize(title, contentWidth);
+      for (let i = 0; i < titleLines.length; i++) {
+        doc.text(titleLines[i], marginLeft, cursorY);
+        cursorY += lineHeight;
+      }
       cursorY += lineHeight; // extra gap after title
 
-      // Info block (labels/values)
+      // Info table with borders
+      const labelColWidth = 40;
+      const valueColWidth = contentWidth - labelColWidth;
       const labelX = marginLeft;
-      const valueX = marginLeft + 40;
+      const valueX = marginLeft + labelColWidth;
 
       function addInfoRow(label, value) {
         const v = value && value.trim() ? value.trim() : "-";
-        ensurePageSpace(1);
-        doc.setFont("helvetica", "bold");
+
         doc.setFontSize(11);
-        doc.text(label, labelX, cursorY);
-        doc.setFont("helvetica", "normal");
-        const valueLines = doc.splitTextToSize(v, contentWidth - (valueX - labelX));
-        for (let i = 0; i < valueLines.length; i++) {
-          if (i === 0) {
-            doc.text(valueLines[i], valueX, cursorY);
-          } else {
-            cursorY += lineHeight;
-            ensurePageSpace(1);
-            doc.text(valueLines[i], valueX, cursorY);
-          }
+        const labelLines = doc.splitTextToSize(label, labelColWidth - 4);
+        const valueLines = doc.splitTextToSize(v, valueColWidth - 4);
+        const linesCount = Math.max(labelLines.length, valueLines.length);
+        const rowHeight = linesCount * lineHeight + 2;
+
+        ensurePageSpace(linesCount + 1);
+
+        // Draw cell borders
+        doc.rect(labelX, cursorY, labelColWidth, rowHeight);
+        doc.rect(valueX, cursorY, valueColWidth, rowHeight);
+
+        // Label
+        let ly = cursorY + lineHeight;
+        doc.setFont("helvetica", "bold");
+        for (let i = 0; i < labelLines.length; i++) {
+          doc.text(labelLines[i], labelX + 2, ly);
+          ly += lineHeight;
         }
-        cursorY += lineHeight;
+
+        // Value
+        let vy = cursorY + lineHeight;
+        doc.setFont("helvetica", "normal");
+        for (let i = 0; i < valueLines.length; i++) {
+          doc.text(valueLines[i], valueX + 2, vy);
+          vy += lineHeight;
+        }
+
+        cursorY += rowHeight;
       }
 
       addInfoRow("Employee:", employee);
@@ -1534,7 +1562,7 @@ Return STRICT JSON ONLY in this format:
     }
 
     async function viewReport() {
-      logDebug("viewReport: generating structured A4 landscape PDF.");
+      logDebug("viewReport: generating structured A4 portrait PDF.");
       await generatePdfAndOpen();
     }
 
