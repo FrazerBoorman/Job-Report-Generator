@@ -1363,22 +1363,37 @@ Return STRICT JSON ONLY in this format:
     }
 
     // ======================
-    //  PDF GENERATION (A4 LANDSCAPE) + VIEW
+    //  PDF GENERATION (A4 LANDSCAPE, STRUCTURED)
     // ======================
     async function generatePdfAndOpen() {
-      // Make sure report text exists
+      // Make sure report fields (and AI polish) are up to date
       if (!lastReportText) {
         logDebug("generatePdfAndOpen: no lastReportText, calling generateReport().");
         await generateReport();
       }
-
-      const text = lastReportText || buildReportText();
 
       if (!window.jspdf || !window.jspdf.jsPDF) {
         logDebug("generatePdfAndOpen: jsPDF not available.");
         alert("PDF library not loaded – cannot generate PDF.");
         return;
       }
+
+      const employee = document.getElementById("employee").value.trim();
+      const jobType  = document.getElementById("jobType").value;
+      const jobDate  = document.getElementById("jobDate").value;
+      const jobAddr  = document.getElementById("jobAddress").value.trim();
+      const jobDesc  = document.getElementById("jobDescription").value.trim();
+      const tech     = document.getElementById("techCheck").value.trim();
+      const persons  = document.getElementById("personsMet").value.trim();
+      const cPhone   = document.getElementById("contactPhone").value.trim();
+      const cEmail   = document.getElementById("contactEmail").value.trim();
+      const cAddr    = document.getElementById("contactAddress").value.trim();
+      const dur      = document.getElementById("timeDuration").value.trim();
+      const findings = document.getElementById("findings").value.trim();
+      const howRaw   = document.getElementById("howLeft").value.trim();
+      const advRaw   = document.getElementById("advisories").value.trim();
+      const howFull  = expandNotes(howRaw);
+      const advFull  = expandNotes(advRaw);
 
       const { jsPDF } = window.jspdf;
 
@@ -1391,35 +1406,135 @@ Return STRICT JSON ONLY in this format:
 
       const marginLeft = 15;
       const marginTop = 15;
-      const lineHeight = 5;
-      const pageWidth = 297 - marginLeft * 2;
+      const pageWidth = 297;
       const pageHeight = 210;
+      const contentWidth = pageWidth - marginLeft * 2;
+      const lineHeight = 5;
       const bottomLimit = pageHeight - marginTop;
 
-      const lines = doc.splitTextToSize(text, pageWidth);
       let cursorY = marginTop;
 
-      for (let i = 0; i < lines.length; i++) {
-        if (cursorY > bottomLimit) {
+      function ensurePageSpace(linesNeeded) {
+        const needed = linesNeeded * lineHeight;
+        if (cursorY + needed > bottomLimit) {
           doc.addPage();
           cursorY = marginTop;
         }
-        doc.text(lines[i], marginLeft, cursorY);
+      }
+
+      function addWrappedText(text, x, startY) {
+        const lines = doc.splitTextToSize(text, contentWidth);
+        for (let i = 0; i < lines.length; i++) {
+          if (cursorY > bottomLimit) {
+            doc.addPage();
+            cursorY = marginTop;
+          }
+          doc.text(lines[i], x, cursorY);
+          cursorY += lineHeight;
+        }
+      }
+
+      function addSection(heading, bodyText) {
+        const text = bodyText && bodyText.trim() ? bodyText.trim() : "-";
+        const estimateLines = 2 + doc.splitTextToSize(text, contentWidth).length;
+        ensurePageSpace(estimateLines);
+
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(13);
+        doc.text(heading, marginLeft, cursorY);
+        cursorY += lineHeight;
+
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(11);
+        addWrappedText(text, marginLeft);
+        cursorY += lineHeight * 0.5;
+      }
+
+      // Title: Job Report – {type} – {date} – {address}
+      let title = "Job Report";
+      const typePart = jobType || "Job";
+      title += " – " + typePart;
+      if (jobDate) title += " – " + jobDate;
+      if (jobAddr) title += " – " + jobAddr;
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(16);
+      addWrappedText(title, marginLeft);
+      cursorY += lineHeight; // extra gap after title
+
+      // Info block (labels/values)
+      const labelX = marginLeft;
+      const valueX = marginLeft + 40;
+
+      function addInfoRow(label, value) {
+        const v = value && value.trim() ? value.trim() : "-";
+        ensurePageSpace(1);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(11);
+        doc.text(label, labelX, cursorY);
+        doc.setFont("helvetica", "normal");
+        const valueLines = doc.splitTextToSize(v, contentWidth - (valueX - labelX));
+        for (let i = 0; i < valueLines.length; i++) {
+          if (i === 0) {
+            doc.text(valueLines[i], valueX, cursorY);
+          } else {
+            cursorY += lineHeight;
+            ensurePageSpace(1);
+            doc.text(valueLines[i], valueX, cursorY);
+          }
+        }
         cursorY += lineHeight;
       }
 
-      const jobType  = (document.getElementById("jobType").value || "job").toLowerCase().replace(/[^a-z0-9]+/g, "_");
-      const jobDate  = (document.getElementById("jobDate").value || "").replace(/[^0-9\-]+/g, "");
-      const fname    = "job_report_" + jobType + (jobDate ? "_" + jobDate : "") + ".pdf";
+      addInfoRow("Employee:", employee);
+      addInfoRow("Job type:", jobType || "");
+      addInfoRow("Date:", jobDate || "");
+      addInfoRow("Address / site:", jobAddr || "");
+      addInfoRow("Person(s) met:", persons || "");
 
-      // Open in new tab/window
+      cursorY += lineHeight * 0.5;
+
+      // Sections in order: Job description, Tech check summary, Contacts, Time on site (if TCO/RTF), Findings, How left, Advisories
+      addSection("Job description", jobDesc);
+      addSection("Tech check summary", tech);
+
+      // Contacts section
+      let contactsText = "";
+      if (persons) contactsText += "Person(s) met: " + persons + "\n";
+      if (cPhone) contactsText += "Phone: " + cPhone + "\n";
+      if (cEmail) contactsText += "Email: " + cEmail + "\n";
+      if (cAddr) contactsText += "Postal address: " + cAddr.replace(/\r?\n/g, ", ") + "\n";
+      contactsText = contactsText.trim();
+      addSection("Contacts", contactsText);
+
+      // Time on site (only for TCO / RTF)
+      if (jobType === "TCO" || jobType === "RTF") {
+        const arr = document.getElementById("timeArrived").value;
+        const left = document.getElementById("timeLeft").value;
+        let timeText = "";
+        timeText += "Arrived: " + (arr || "-") + "\n";
+        timeText += "Left: " + (left || "-") + "\n";
+        timeText += "Duration: " + (dur || "-");
+        addSection("Time on site", timeText);
+      }
+
+      addSection("Findings", findings);
+      addSection("How things have been left", howFull);
+      addSection("Advisories", advFull);
+
+      // NOTE: Photos / videos intentionally NOT included in the PDF layout
+
+      const safeType = (jobType || "job").toLowerCase().replace(/[^a-z0-9]+/g, "_");
+      const safeDate = (jobDate || "").replace(/[^0-9\-]+/g, "");
+      const fname = "job_report_" + safeType + (safeDate ? "_" + safeDate : "") + ".pdf";
+
       const blobUrl = doc.output("bloburl");
       logDebug("generatePdfAndOpen: opening PDF " + fname);
       window.open(blobUrl, "_blank");
     }
 
     async function viewReport() {
-      logDebug("viewReport: generating A4 landscape PDF.");
+      logDebug("viewReport: generating structured A4 landscape PDF.");
       await generatePdfAndOpen();
     }
 
