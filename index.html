@@ -222,6 +222,7 @@
     }
   </style>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
   <div class="wrap">
@@ -1361,14 +1362,65 @@ Return STRICT JSON ONLY in this format:
       preview.scrollTop = 0;
     }
 
-    function viewReport() {
+    // ======================
+    //  PDF GENERATION (A4 LANDSCAPE) + VIEW
+    // ======================
+    async function generatePdfAndOpen() {
+      // Make sure report text exists
       if (!lastReportText) {
-        generateReport().catch(err => {
-          logDebug("viewReport generateReport error: " + (err && err.message ? err.message : String(err)));
-        });
-      } else {
-        document.getElementById("reportPreview").scrollIntoView({ behavior: "smooth", block: "start" });
+        logDebug("generatePdfAndOpen: no lastReportText, calling generateReport().");
+        await generateReport();
       }
+
+      const text = lastReportText || buildReportText();
+
+      if (!window.jspdf || !window.jspdf.jsPDF) {
+        logDebug("generatePdfAndOpen: jsPDF not available.");
+        alert("PDF library not loaded – cannot generate PDF.");
+        return;
+      }
+
+      const { jsPDF } = window.jspdf;
+
+      // A4 landscape: 297mm x 210mm
+      const doc = new jsPDF({
+        orientation: "landscape",
+        unit: "mm",
+        format: "a4"
+      });
+
+      const marginLeft = 15;
+      const marginTop = 15;
+      const lineHeight = 5;
+      const pageWidth = 297 - marginLeft * 2;
+      const pageHeight = 210;
+      const bottomLimit = pageHeight - marginTop;
+
+      const lines = doc.splitTextToSize(text, pageWidth);
+      let cursorY = marginTop;
+
+      for (let i = 0; i < lines.length; i++) {
+        if (cursorY > bottomLimit) {
+          doc.addPage();
+          cursorY = marginTop;
+        }
+        doc.text(lines[i], marginLeft, cursorY);
+        cursorY += lineHeight;
+      }
+
+      const jobType  = (document.getElementById("jobType").value || "job").toLowerCase().replace(/[^a-z0-9]+/g, "_");
+      const jobDate  = (document.getElementById("jobDate").value || "").replace(/[^0-9\-]+/g, "");
+      const fname    = "job_report_" + jobType + (jobDate ? "_" + jobDate : "") + ".pdf";
+
+      // Open in new tab/window
+      const blobUrl = doc.output("bloburl");
+      logDebug("generatePdfAndOpen: opening PDF " + fname);
+      window.open(blobUrl, "_blank");
+    }
+
+    async function viewReport() {
+      logDebug("viewReport: generating A4 landscape PDF.");
+      await generatePdfAndOpen();
     }
 
     async function copyReportText() {
@@ -1484,7 +1536,12 @@ Return STRICT JSON ONLY in this format:
           alert("Error generating report. See debug panel.");
         });
       });
-      document.getElementById("viewBtn").addEventListener("click", viewReport);
+      document.getElementById("viewBtn").addEventListener("click", () => {
+        viewReport().catch(err => {
+          logDebug("viewBtn error: " + (err && err.message ? err.message : String(err)));
+          alert("Error generating PDF. See debug panel.");
+        });
+      });
       document.getElementById("copyBtn").addEventListener("click", () => {
         copyReportText().catch(err => {
           logDebug("copyBtn error: " + (err && err.message ? err.message : String(err)));
