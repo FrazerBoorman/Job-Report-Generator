@@ -51,6 +51,10 @@
       margin: 0 0 6px;
       font-size: 26px;
       letter-spacing: .02em;
+      display:flex;
+      align-items:baseline;
+      gap:8px;
+      flex-wrap:wrap;
     }
     .version {
       font-size:11px;
@@ -58,7 +62,6 @@
       border-radius:999px;
       border:1px solid var(--border);
       color:var(--muted);
-      margin-left:6px;
     }
     .muted { color: var(--muted); font-size: 14px; }
 
@@ -231,10 +234,10 @@
         <div>
           <h1>
             Job Report Generator
-            <span class="version">v0.9</span>
+            <span class="version" id="versionPill">v0.10</span>
           </h1>
           <div class="muted">
-            Tap once to sign into Google, load last 14 days of jobs, AI-fills and tidies the report, then export to Word / email.
+            Tap once to sign into Google, load jobs, AI-fills and tidies the report, then export to Word / email.
           </div>
         </div>
         <a href="../index.html" class="pill">Frazer · AVD Tools</a>
@@ -242,10 +245,10 @@
 
       <!-- Calendar selection -->
       <div class="section">
-        <div class="section-title">Step 1 – Load recent jobs from calendar</div>
+        <div class="section-title">Step 1 – Load jobs from calendar</div>
         <div class="grid">
           <div>
-            <label for="eventSelect">Recent events (last 14 days + today)</label>
+            <label for="eventSelect">Events (default: last 14 days + today)</label>
             <select id="eventSelect">
               <option value="">Sign in to load events…</option>
             </select>
@@ -257,6 +260,31 @@
             <div class="small-note">One tap. After that, events load &amp; AI runs automatically.</div>
           </div>
         </div>
+
+        <!-- Advanced date selection panel (override last 14 days) -->
+        <details class="debug" style="margin-top:8px;">
+          <summary>Advanced date range (override last 14 days)</summary>
+          <div class="small-note" style="margin-top:4px;">
+            By default the tool loads events from the last 14 days plus today. Override the date range here if needed.
+          </div>
+          <div class="grid" style="margin-top:6px;max-width:520px;">
+            <div>
+              <label for="startDateInput">Start date</label>
+              <input id="startDateInput" type="date" />
+            </div>
+            <div>
+              <label for="endDateInput">End date</label>
+              <input id="endDateInput" type="date" />
+            </div>
+          </div>
+          <div class="btn-row" style="margin-top:6px;">
+            <button type="button" id="applyDateRangeBtn">Apply date range</button>
+            <button type="button" id="clearDateRangeBtn">Clear override</button>
+          </div>
+          <div class="small-note">
+            Both dates required. Clear override to return to the automatic last-14-days window. (Custom range can include future events.)
+          </div>
+        </details>
       </div>
 
       <!-- Report fields -->
@@ -265,7 +293,7 @@
         <div class="grid">
           <div>
             <label for="employee">Employee</label>
-            <input id="employee" placeholder="Derived from calendar ID if possible" />
+            <input id="employee" placeholder="Derived from calendar ID if possible (defaults to Frazer)" />
           </div>
           <div>
             <label for="jobType">Job type</label>
@@ -412,9 +440,46 @@
         <pre id="debugLog">(empty)</pre>
       </details>
 
-      <!-- Calendar settings (Calendar ID hidden by default) -->
+      <!-- AI Debugger panel -->
+      <details class="debug">
+        <summary>AI Debugger (Be Strict)</summary>
+        <div class="small-note" style="margin-top:4px;">
+          Sends the full current index.html, internal debug log, selected event payload (if any), and captured browser/console errors.
+          It will either propose a minimal code fix with a full replacement index, or explain why the issue is external.
+        </div>
+        <div style="margin-top:6px;">
+          <button type="button" id="runAiDebuggerBtn">Run AI Debugger (index + logs)</button>
+        </div>
+
+        <div class="small-note" style="margin-top:10px;">
+          What isn’t working? (This is included in the AI Debugger payload.)
+        </div>
+        <textarea id="aiDebuggerUserIssue" rows="4" style="margin-top:4px;" placeholder="e.g. Future jobs don’t appear when I set an advanced date range..."></textarea>
+
+        <div class="small-note" style="margin-top:10px;">
+          Optional: paste any extra console messages here if you’ve copied them from DevTools:
+        </div>
+        <textarea id="consoleErrorsInput" rows="4" style="margin-top:4px;"></textarea>
+
+        <div class="small-note" style="margin-top:10px;">
+          AI Debugger output (summary, reasons, and outline of changes):
+        </div>
+        <pre id="aiDebuggerOutput"></pre>
+      </details>
+
+      <!-- Replacement Index panel -->
+      <details class="debug">
+        <summary>Replacement index (from AI Debugger)</summary>
+        <div class="small-note" style="margin-top:4px;">
+          If the AI Debugger can fix the problem in code, it will provide a complete replacement index.html here.
+          If the issue is external, this area will contain a prompt you can paste into ChatGPT for deeper help.
+        </div>
+        <pre id="replacementIndexOutput">(none yet)</pre>
+      </details>
+
+      <!-- Calendar / advanced settings -->
       <details class="calendar-settings">
-        <summary>Calendar settings (Calendar ID)</summary>
+        <summary>Calendar / advanced (Calendar ID)</summary>
         <div class="small-note" style="margin-top:4px;">
           Calendar ID used for loading jobs. Normally you won’t need to change this.
         </div>
@@ -450,15 +515,27 @@
     // ======================
     //  CONFIG / CONSTANTS
     // ======================
+    const APP_VERSION = "v0.10";
+    const VERSION_GUARD_KEY = "avd_tool_job_report_generator_last_version";
+
     const CLIENT_ID = "105230737516-l8tlnck4idde83pjetrotobpt8borvts.apps.googleusercontent.com";
     const SCOPES   = "https://www.googleapis.com/auth/calendar.readonly";
+
     const OPENAI_MODEL = "gpt-4.1-mini";
     const OPENAI_KEY_STORAGE = "avd_job_report_openai_key";
+
+    const DEBUG_MODEL_CANDIDATES = ["gpt-5.2","gpt-5.1","gpt-5-mini","gpt-4.1-mini"];
 
     let accessToken = null;
     let tokenClient = null;
     let currentEvents = [];
     let lastReportText = "";
+
+    let customDateRange = { start: null, end: null }; // optional override for event date window
+
+    // Captured logs for AI Debugger
+    let browserErrorLog = [];
+    let consoleLogBuffer = [];
 
     // ========== DEBUG ==========
     function logDebug(msg) {
@@ -504,7 +581,7 @@
         callback: function(resp) {
           if (resp && resp.access_token) {
             accessToken = resp.access_token;
-            setStatus("Signed in. Loading last 14 days…", true);
+            setStatus("Signed in. Loading events…", true);
             loadRecentEvents().catch(err => {
               logDebug("loadRecentEvents error after sign-in: " + (err && err.message ? err.message : String(err)));
             });
@@ -550,11 +627,25 @@
       const calId = (document.getElementById("calendarId").value || "primary").trim();
 
       const now = new Date();
-      const end = new Date(now);
-      end.setHours(23, 59, 59, 999);
-      const start = new Date(now);
-      start.setDate(start.getDate() - 14);
-      start.setHours(0, 0, 0, 0);
+      let start;
+      let end;
+
+      const isCustom = !!(customDateRange.start && customDateRange.end);
+
+      if (isCustom) {
+        start = new Date(customDateRange.start);
+        start.setHours(0, 0, 0, 0);
+        end = new Date(customDateRange.end);
+        end.setHours(23, 59, 59, 999);
+        logDebug("Using custom date range: " + start.toISOString().slice(0,10) + " to " + end.toISOString().slice(0,10));
+      } else {
+        end = new Date(now);
+        end.setHours(23, 59, 59, 999);
+        start = new Date(now);
+        start.setDate(start.getDate() - 14);
+        start.setHours(0, 0, 0, 0);
+        logDebug("Using default date range: last 14 days + today.");
+      }
 
       const url = new URL(
         "https://www.googleapis.com/calendar/v3/calendars/" +
@@ -584,9 +675,12 @@
       const all = data.items || [];
       const nowRef = new Date();
 
+      // IMPORTANT:
+      // - Default mode behaves like "recent" and filters out future events.
+      // - Custom mode must allow future events (do NOT filter by <= nowRef).
       const processed = all
         .map(ev => ({ ev, startDate: getEventStartDate(ev) }))
-        .filter(obj => obj.startDate && obj.startDate <= nowRef)
+        .filter(obj => obj.startDate && (isCustom ? true : (obj.startDate <= nowRef)))
         .sort((a, b) => b.startDate - a.startDate);
 
       const picked = processed.map(x => x.ev);
@@ -598,9 +692,9 @@
       if (!picked.length) {
         const opt = document.createElement("option");
         opt.value = "";
-        opt.textContent = "No events in the last 14 days.";
+        opt.textContent = isCustom ? "No events in selected window." : "No events in the last 14 days.";
         sel.appendChild(opt);
-        setStatus("No events in the last 14 days.", false);
+        setStatus(isCustom ? "No events found for this date range." : "No events in the last 14 days.", false);
         return;
       }
 
@@ -619,8 +713,9 @@
         sel.appendChild(opt);
       }
 
-      setStatus("Loaded " + picked.length + " events from last 14 days.", true);
+      setStatus("Loaded " + picked.length + " events.", true);
       logDebug("loadRecentEvents: loaded " + picked.length + " events.");
+
       deriveEmployeeFromCalendarId(calId);
 
       if (picked.length > 0) {
@@ -631,14 +726,24 @@
 
     function deriveEmployeeFromCalendarId(calId) {
       const employeeInput = document.getElementById("employee");
-      if (!calId || employeeInput.value) return;
-      if (calId.indexOf("@") === -1) return;
-      const local = calId.split("@")[0];
-      const parts = local.split(".");
-      if (parts.length >= 2) {
-        const name = parts.map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(" ");
-        employeeInput.value = name;
+      if (!employeeInput) return;
+      if (employeeInput.value && employeeInput.value.trim()) return;
+
+      let derived = "";
+
+      if (calId && calId.indexOf("@") !== -1) {
+        const local = calId.split("@")[0];
+        // If it looks like name.surname@domain -> "Name Surname"
+        const parts = local.split(".");
+        if (parts.length >= 2) {
+          derived = parts
+            .filter(Boolean)
+            .map(p => p.charAt(0).toUpperCase() + p.slice(1))
+            .join(" ");
+        }
       }
+
+      employeeInput.value = (derived && derived.trim()) ? derived : "Frazer";
     }
 
     // ======================
@@ -839,11 +944,9 @@
     // ======================
     function expandNotes(raw) {
       if (!raw) return "";
-      // If it's already a single paragraph (no line breaks), leave it alone
       if (!raw.includes("\n")) {
         return raw.trim();
       }
-      // Multi-line -> treat as bullet-style notes
       const lines = raw.split(/\r?\n/);
       const kept = [];
       for (let i = 0; i < lines.length; i++) {
@@ -901,7 +1004,7 @@
       const systemPrompt =
         "You are helping an audio-visual company engineer interpret a Google Calendar job event.\n" +
         "You receive a JSON object with title, description, location, start, end, attendees.\n" +
-        "Your job is to fill as many report fields as possible using ONLY information present in those fields.\n" +
+        "Your job is to fill as many job report fields as possible using ONLY information present in those fields.\n" +
         "You must NOT invent any details from thin air.\n\n" +
         "Use ALL of: title, description, and location to find:\n" +
         "- job type (TCO, RTF, Meeting / Consultation, Recce, Job / Installation)\n" +
@@ -1366,7 +1469,6 @@ Return STRICT JSON ONLY in this format:
     //  PDF GENERATION (A4 PORTRAIT, STRUCTURED, WITH EXTRA SPACING)
     // ======================
     async function generatePdfAndOpen() {
-      // Make sure report fields (and AI polish) are up to date
       if (!lastReportText) {
         logDebug("generatePdfAndOpen: no lastReportText, calling generateReport().");
         await generateReport();
@@ -1397,7 +1499,6 @@ Return STRICT JSON ONLY in this format:
 
       const { jsPDF } = window.jspdf;
 
-      // A4 portrait: 210mm x 297mm
       const doc = new jsPDF({
         orientation: "portrait",
         unit: "mm",
@@ -1422,23 +1523,10 @@ Return STRICT JSON ONLY in this format:
         }
       }
 
-      function addWrappedText(text, x) {
-        const lines = doc.splitTextToSize(text, contentWidth);
-        for (let i = 0; i < lines.length; i++) {
-          if (cursorY > bottomLimit) {
-            doc.addPage();
-            cursorY = marginTop;
-          }
-          doc.text(lines[i], x, cursorY);
-          cursorY += lineHeight;
-        }
-      }
-
       function addSection(heading, bodyText) {
         const text = bodyText && bodyText.trim() ? bodyText.trim() : "-";
         const bodyLines = doc.splitTextToSize(text, contentWidth);
         const estimateLines = 2 + bodyLines.length;
-        // Slightly more conservative: +1 line to avoid crowding previous block
         ensurePageSpace(estimateLines + 1);
 
         doc.setFont("helvetica", "bold");
@@ -1459,7 +1547,6 @@ Return STRICT JSON ONLY in this format:
         cursorY += lineHeight * 0.5;
       }
 
-      // Title: Job Report – {type} – {date} – {address}
       let title = "Job Report";
       const typePart = jobType || "Job";
       title += " – " + typePart;
@@ -1473,10 +1560,8 @@ Return STRICT JSON ONLY in this format:
         doc.text(titleLines[i], marginLeft, cursorY);
         cursorY += lineHeight;
       }
-      // Extra gap after title to clearly separate from the table
       cursorY += lineHeight * 2;
 
-      // Info table with borders
       const labelColWidth = 40;
       const valueColWidth = contentWidth - labelColWidth;
       const labelX = marginLeft;
@@ -1493,11 +1578,9 @@ Return STRICT JSON ONLY in this format:
 
         ensurePageSpace(linesCount + 1);
 
-        // Draw cell borders
         doc.rect(labelX, cursorY, labelColWidth, rowHeight);
         doc.rect(valueX, cursorY, valueColWidth, rowHeight);
 
-        // Label
         let ly = cursorY + lineHeight;
         doc.setFont("helvetica", "bold");
         for (let i = 0; i < labelLines.length; i++) {
@@ -1505,7 +1588,6 @@ Return STRICT JSON ONLY in this format:
           ly += lineHeight;
         }
 
-        // Value
         let vy = cursorY + lineHeight;
         doc.setFont("helvetica", "normal");
         for (let i = 0; i < valueLines.length; i++) {
@@ -1522,14 +1604,11 @@ Return STRICT JSON ONLY in this format:
       addInfoRow("Address / site:", jobAddr || "");
       addInfoRow("Person(s) met:", persons || "");
 
-      // Larger gap after table so "Job description" can't sit on top of it
       cursorY += lineHeight * 2;
 
-      // Sections in order: Job description, Tech check summary, Contacts, Time on site (if TCO/RTF), Findings, How left, Advisories
       addSection("Job description", jobDesc);
       addSection("Tech check summary", tech);
 
-      // Contacts section
       let contactsText = "";
       if (persons) contactsText += "Person(s) met: " + persons + "\n";
       if (cPhone) contactsText += "Phone: " + cPhone + "\n";
@@ -1538,7 +1617,6 @@ Return STRICT JSON ONLY in this format:
       contactsText = contactsText.trim();
       addSection("Contacts", contactsText);
 
-      // Time on site (only for TCO / RTF)
       if (jobType === "TCO" || jobType === "RTF") {
         const arr = document.getElementById("timeArrived").value;
         const left = document.getElementById("timeLeft").value;
@@ -1552,8 +1630,6 @@ Return STRICT JSON ONLY in this format:
       addSection("Findings", findings);
       addSection("How things have been left", howFull);
       addSection("Advisories", advFull);
-
-      // NOTE: Photos / videos intentionally NOT included in the PDF layout
 
       const safeType = (jobType || "job").toLowerCase().replace(/[^a-z0-9]+/g, "_");
       const safeDate = (jobDate || "").replace(/[^0-9\-]+/g, "");
@@ -1665,10 +1741,302 @@ Return STRICT JSON ONLY in this format:
     }
 
     // ======================
+    //  AI DEBUGGER LOGIC
+    // ======================
+    const aiDebuggerSystemPrompt =
+      "You are an AI debugger for a single-page browser tool called 'Job Report Generator'.\n" +
+      "The tool loads job events from Google Calendar, uses AI to scalp the selected event into report fields, polishes report notes, and generates Word/PDF outputs.\n" +
+      "The tool is delivered as a single index.html and runs entirely in the browser (no backend).\n\n" +
+      "Important rules (labelled 'Be Strict'):\n" +
+      "1) Only change code when you can point to a concrete bug, missing handler, or clearly unsafe behaviour.\n" +
+      "2) Never rewrite or simplify working code.\n" +
+      "3) Keep all existing layout, styling, naming, and structure unless a specific bug forces a change.\n" +
+      "4) When you change code, you must:\n" +
+      "   - Explain the issue in plain language,\n" +
+      "   - Explain why your change fixes it,\n" +
+      "   - Describe exactly where the change belongs (function name or HTML section),\n" +
+      "   - Provide a full replacement index.html with your changes applied.\n" +
+      "5) The replacement index must be COMPLETE, from <!doctype html> to </html>, with NO truncation, ellipses, or placeholders.\n" +
+      "6) Do not invent external configuration fixes (API keys, account/project changes, quotas). If the problem is external, say so explicitly.\n\n" +
+      "Calendar expectations:\n" +
+      "- Default mode loads last 14 days + today (future events can be hidden in default mode).\n" +
+      "- Advanced date range mode must allow selecting future events (do not filter out future events when custom range is active).\n\n" +
+      "PDF expectations:\n" +
+      "- Preserve existing PDF layout/formatting rules unless you are fixing a real overlap/spacing/overflow defect.\n\n" +
+      "You will be given a JSON payload with:\n" +
+      "- toolName, versionPill\n" +
+      "- indexHtml (full current page source)\n" +
+      "- debugLog (internal debug text)\n" +
+      "- selectedEvent (the current selected event payload, if any)\n" +
+      "- browserErrors (window.onerror / unhandledrejection text)\n" +
+      "- consoleBuffer (captured console log/warn/error)\n" +
+      "- userIssue (the user’s own description of what isn’t working)\n" +
+      "- consoleExtra (freeform text pasted by the user)\n\n" +
+      "You must respond with STRICT JSON in this shape:\n" +
+      "{\n" +
+      "  \"outcome\": \"code_fix\" | \"external_issue\" | \"no_issue\",\n" +
+      "  \"summary\": \"Short summary of what you found.\",\n" +
+      "  \"reasons\": [\"reason 1\", \"reason 2\", \"...\"],\n" +
+      "  \"changes\": [\n" +
+      "    {\n" +
+      "      \"section\": \"short label (e.g. loadRecentEvents, PDF generator)\",\n" +
+      "      \"reason\": \"why this section needs a change\",\n" +
+      "      \"beforeSnippet\": \"optional short snippet from the old code (can be empty)\",\n" +
+      "      \"afterSnippet\": \"the corresponding fixed snippet (can be empty if not applicable)\"\n" +
+      "    }\n" +
+      "  ],\n" +
+      "  \"replacementIndexHtml\": \"Full index.html with your fixes applied, or an empty string if no code changes are needed.\",\n" +
+      "  \"chatgptPrompt\": \"If outcome is external_issue, write a prompt the user can paste into ChatGPT to get further help. Otherwise empty string.\"\n" +
+      "}\n" +
+      "If you believe the issue cannot be solved by changing index.html (for example: account or quota issues, missing model access, or third-party service outages), set outcome to \"external_issue\" and do NOT propose code changes.";
+
+    function extractResponseText(data) {
+      if (
+        data &&
+        data.output &&
+        data.output[0] &&
+        data.output[0].content &&
+        data.output[0].content[0] &&
+        data.output[0].content[0].text
+      ) {
+        return data.output[0].content[0].text;
+      }
+      return "";
+    }
+
+    async function callOpenAIWithFallback(apiKey, systemPrompt, payload) {
+      let lastErr = null;
+
+      for (let i = 0; i < DEBUG_MODEL_CANDIDATES.length; i++) {
+        const model = DEBUG_MODEL_CANDIDATES[i];
+        logDebug("AI Debugger: trying model " + model + "…");
+
+        try {
+          const res = await fetch("https://api.openai.com/v1/responses", {
+            method: "POST",
+            headers: {
+              "Content-Type":"application/json",
+              "Authorization":"Bearer " + apiKey
+            },
+            body: JSON.stringify({
+              model,
+              input: [
+                { role:"system", content: systemPrompt },
+                { role:"user", content: JSON.stringify(payload) }
+              ]
+            })
+          });
+
+          if (!res.ok) {
+            const txt = await res.text().catch(() => "");
+            const msg = "Model " + model + " returned " + res.status + ": " + txt;
+            logDebug("AI Debugger: " + msg);
+            lastErr = new Error(msg);
+
+            // Fallback cases: model not found / not permitted / not available
+            if (res.status === 404 || res.status === 403) {
+              continue;
+            }
+            throw lastErr;
+          }
+
+          const data = await res.json();
+          const rawText = extractResponseText(data);
+          if (!rawText) {
+            throw new Error("Unexpected AI response shape (no text content) from model " + model);
+          }
+
+          logDebug("AI Debugger: model " + model + " succeeded.");
+          return rawText;
+        } catch (e) {
+          lastErr = e;
+          // If network / CORS / transient, no point retrying other models
+          const message = (e && e.message) ? e.message : String(e);
+          if (
+            message.includes("Failed to fetch") ||
+            message.includes("NetworkError") ||
+            message.includes("CORS")
+          ) {
+            throw e;
+          }
+        }
+      }
+
+      throw lastErr || new Error("AI Debugger failed on all candidate models.");
+    }
+
+    async function handleRunAiDebugger() {
+      let apiKey = "";
+      try {
+        apiKey = localStorage.getItem(OPENAI_KEY_STORAGE) || "";
+        if (!apiKey) throw new Error("No OpenAI API key found. Set it in the API key panel.");
+      } catch (e) {
+        setAiStatus(e.message || "No API key set for AI Debugger.", false);
+        const outEl = document.getElementById("aiDebuggerOutput");
+        if (outEl) outEl.textContent = e.message || "No API key set.";
+        return;
+      }
+
+      const btn = document.getElementById("runAiDebuggerBtn");
+      if (btn) btn.disabled = true;
+      setAiStatus("Running AI Debugger…", true);
+      logDebug("AI Debugger invoked.");
+
+      const eventSelect = document.getElementById("eventSelect");
+      let selectedEvent = null;
+      if (eventSelect && eventSelect.value) {
+        const ev = currentEvents[Number(eventSelect.value)];
+        if (ev) {
+          selectedEvent = {
+            summary: ev.summary || "",
+            description: ev.description || "",
+            location: ev.location || "",
+            start: ev.start || {},
+            end: ev.end || {},
+            attendees: ev.attendees || []
+          };
+        }
+      }
+
+      const payload = {
+        toolName: "Job Report Generator",
+        versionPill: (document.getElementById("versionPill") && document.getElementById("versionPill").textContent) || "",
+        indexHtml: document.documentElement.outerHTML,
+        debugLog: (document.getElementById("debugLog") && document.getElementById("debugLog").textContent) || "",
+        selectedEvent,
+        browserErrors: browserErrorLog.slice(),
+        consoleBuffer: consoleLogBuffer.slice(),
+        userIssue: (document.getElementById("aiDebuggerUserIssue") && document.getElementById("aiDebuggerUserIssue").value) || "",
+        consoleExtra: (document.getElementById("consoleErrorsInput") && document.getElementById("consoleErrorsInput").value) || ""
+      };
+
+      const outEl = document.getElementById("aiDebuggerOutput");
+      const replEl = document.getElementById("replacementIndexOutput");
+      if (outEl) outEl.textContent = "";
+      if (replEl) replEl.textContent = "(none yet)";
+
+      try {
+        const rawText = await callOpenAIWithFallback(apiKey, aiDebuggerSystemPrompt, payload);
+
+        let parsed;
+        try {
+          parsed = JSON.parse(rawText);
+        } catch (e) {
+          console.error("AI Debugger JSON parse failed:", rawText);
+          throw new Error("AI Debugger JSON parse failed.");
+        }
+
+        const outcome = parsed.outcome || "no_issue";
+        const summary = parsed.summary || "";
+        const reasons = Array.isArray(parsed.reasons) ? parsed.reasons : [];
+        const changes = Array.isArray(parsed.changes) ? parsed.changes : [];
+        const replacementIndexHtml = parsed.replacementIndexHtml || "";
+        const chatgptPrompt = parsed.chatgptPrompt || "";
+
+        let outText = "";
+        outText += "Outcome: " + outcome + "\n";
+        if (summary) {
+          outText += "\nSummary:\n" + summary + "\n";
+        }
+        if (reasons.length) {
+          outText += "\nReasons:\n";
+          reasons.forEach((r) => { outText += "- " + r + "\n"; });
+        }
+        if (changes.length) {
+          outText += "\nChanges:\n";
+          changes.forEach((c, idx) => {
+            const section = c.section || ("Change " + (idx + 1));
+            const reason = c.reason || "";
+            outText += "* " + section + (reason ? " – " + reason : "") + "\n";
+          });
+        }
+
+        if (outEl) outEl.textContent = outText || "(no details provided by AI Debugger)";
+
+        if (replEl) {
+          if (outcome === "code_fix" && replacementIndexHtml) {
+            replEl.textContent = replacementIndexHtml;
+          } else if (outcome === "external_issue" && chatgptPrompt) {
+            replEl.textContent = chatgptPrompt;
+          } else {
+            replEl.textContent = "(no replacement index provided)";
+          }
+        }
+
+        setAiStatus("AI Debugger finished. Review its output below.", true);
+      } catch (e) {
+        console.error(e);
+        if (outEl) outEl.textContent = e.message || "AI Debugger error.";
+        setAiStatus(e.message || "AI Debugger error.", false);
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    }
+
+    // ======================
     //  INIT
     // ======================
     window.addEventListener("DOMContentLoaded", function() {
       logDebug("DOMContentLoaded.");
+
+      // Version pill + guard
+      try {
+        const pill = document.getElementById("versionPill");
+        if (pill) pill.textContent = APP_VERSION;
+
+        const last = localStorage.getItem(VERSION_GUARD_KEY);
+        if (last && last === APP_VERSION) {
+          logDebug("Version guard: version unchanged since last load (" + APP_VERSION + ").");
+        }
+        localStorage.setItem(VERSION_GUARD_KEY, APP_VERSION);
+      } catch (e) {
+        logDebug("Version init error: " + (e && e.message ? e.message : String(e)));
+      }
+
+      // Capture browser-level errors into browserErrorLog and debug pane
+      window.addEventListener("error", (event) => {
+        const msg = (event.message || "Unknown error") +
+          (event.filename ? (" @ " + event.filename + ":" + event.lineno + ":" + event.colno) : "");
+        browserErrorLog.push(msg);
+        logDebug("BROWSER ERROR: " + msg);
+      });
+
+      window.addEventListener("unhandledrejection", (event) => {
+        const reason = event.reason;
+        const msg = "Unhandled promise rejection: " + (reason && reason.message ? reason.message : String(reason || "unknown"));
+        browserErrorLog.push(msg);
+        logDebug("BROWSER ERROR: " + msg);
+      });
+
+      // Capture console output (for AI Debugger)
+      try {
+        const origLog = console.log.bind(console);
+        const origWarn = console.warn.bind(console);
+        const origError = console.error.bind(console);
+
+        function pushConsole(kind, args) {
+          try {
+            const ts = new Date().toISOString().replace("T"," ").slice(0,19);
+            const parts = [];
+            for (let i = 0; i < args.length; i++) {
+              const a = args[i];
+              if (typeof a === "string") parts.push(a);
+              else {
+                try { parts.push(JSON.stringify(a)); }
+                catch (e) { parts.push(String(a)); }
+              }
+            }
+            consoleLogBuffer.push("[" + ts + "] " + kind + ": " + parts.join(" "));
+            if (consoleLogBuffer.length > 300) consoleLogBuffer.shift();
+          } catch (e) {}
+        }
+
+        console.log = function() { pushConsole("log", arguments); origLog.apply(console, arguments); };
+        console.warn = function() { pushConsole("warn", arguments); origWarn.apply(console, arguments); };
+        console.error = function() { pushConsole("error", arguments); origError.apply(console, arguments); };
+      } catch (e) {
+        logDebug("Console capture init failed: " + (e && e.message ? e.message : String(e)));
+      }
 
       document.getElementById("signinBtn").addEventListener("click", signInManual);
       document.getElementById("mediaFiles").addEventListener("change", updateMediaList);
@@ -1701,6 +2069,61 @@ Return STRICT JSON ONLY in this format:
         if (eventSelect.value) aiParseSelectedEvent();
       });
 
+      // Date range advanced panel handlers
+      const applyDateBtn = document.getElementById("applyDateRangeBtn");
+      const clearDateBtn = document.getElementById("clearDateRangeBtn");
+      if (applyDateBtn && clearDateBtn) {
+        applyDateBtn.addEventListener("click", () => {
+          const startInput = document.getElementById("startDateInput");
+          const endInput = document.getElementById("endDateInput");
+          const startVal = startInput && startInput.value;
+          const endVal = endInput && endInput.value;
+
+          if (!startVal || !endVal) {
+            setStatus("Both start and end dates are required for a custom range.", false);
+            return;
+          }
+          if (new Date(startVal) > new Date(endVal)) {
+            setStatus("Start date cannot be after end date.", false);
+            return;
+          }
+
+          customDateRange.start = startVal;
+          customDateRange.end = endVal;
+          logDebug("Custom date range set via UI.");
+          loadRecentEvents();
+        });
+
+        clearDateBtn.addEventListener("click", () => {
+          const startInput = document.getElementById("startDateInput");
+          const endInput = document.getElementById("endDateInput");
+          if (startInput) startInput.value = "";
+          if (endInput) endInput.value = "";
+          customDateRange.start = null;
+          customDateRange.end = null;
+          logDebug("Custom date range cleared; reverting to default window.");
+          loadRecentEvents();
+        });
+      }
+
+      // Calendar ID change -> update employee fallback & reload (if signed in)
+      const calInput = document.getElementById("calendarId");
+      if (calInput) {
+        calInput.addEventListener("change", () => {
+          const calId = (calInput.value || "").trim();
+          deriveEmployeeFromCalendarId(calId);
+          if (accessToken) {
+            logDebug("Calendar ID changed; reloading events.");
+            loadRecentEvents();
+          }
+        });
+      }
+
+      // AI Debugger handler
+      const runAiDebuggerBtn = document.getElementById("runAiDebuggerBtn");
+      if (runAiDebuggerBtn) runAiDebuggerBtn.addEventListener("click", handleRunAiDebugger);
+
+      // API key handlers
       const saveBtn = document.getElementById("saveApiKeyBtn");
       const clearBtn = document.getElementById("clearApiKeyBtn");
       if (saveBtn) saveBtn.addEventListener("click", handleSaveApiKey);
